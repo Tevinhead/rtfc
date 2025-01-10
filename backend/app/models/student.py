@@ -8,6 +8,7 @@ class Student(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
+    avatar_url = Column(String, nullable=True)  # NEW COLUMN for profile pictures
     elo_rating = Column(Float, default=1000.0)  # Starting ELO rating
     wins = Column(Integer, default=0)
     losses = Column(Integer, default=0)

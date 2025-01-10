@@ -41,13 +41,14 @@ class StudentBase(BaseModel):
         return v.strip()
 
 class StudentCreate(StudentBase):
-    pass
+    avatar_url: str | None = None  # NEW FIELD
 
 class StudentUpdate(StudentBase):
-    pass
+    avatar_url: str | None = None  # NEW FIELD
 
 class StudentResponse(StudentBase):
     id: UUID
+    avatar_url: str | None = None
     elo_rating: float
     total_matches: int
     wins: int

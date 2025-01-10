@@ -15,11 +15,17 @@ export function StudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
-  const handleSubmit = useCallback(async (values: { name: string }) => {
+  const handleSubmit = useCallback(async (values: { name: string; avatar_url?: string }) => {
     if (selectedStudent) {
-      await updateStudent(selectedStudent.id, { name: values.name });
+      await updateStudent(selectedStudent.id, { 
+        name: values.name,
+        avatar_url: values.avatar_url
+      });
     } else {
-      await addStudent({ name: values.name });
+      await addStudent({ 
+        name: values.name,
+        avatar_url: values.avatar_url
+      });
     }
     setFormModalOpen(false);
     setSelectedStudent(null);
