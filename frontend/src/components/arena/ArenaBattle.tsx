@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Stack, Card, Text } from '@mantine/core';
+import React, { useCallback } from 'react';
+import { Stack, Box } from '@mantine/core';
 import { ErrorAlert } from '../shared/ErrorAlert';
 import { ErrorBoundary } from '../shared/ErrorBoundary';
 import { ArenaBattleCard } from './ArenaBattleCard';
@@ -40,7 +40,6 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   onReset,
   isLoading,
 }) => {
-  // We don't need isAnimationComplete state anymore since we only need to disable buttons during VERSUS step
   const canPickWinner = step !== ArenaStep.VERSUS && !isLoading;
 
   const handleVersusAnimationDone = useCallback(() => {
@@ -49,26 +48,15 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
 
   const renderVersusScreen = () => {
     if (step !== ArenaStep.VERSUS) return null;
-    
     if (!currentMatch) {
-      return (
-        <ErrorAlert 
-          error="Match data not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Match data not found" onRetry={onReset} />;
     }
 
     const player1 = students.find(s => s.id === currentMatch.player1_id);
     const player2 = students.find(s => s.id === currentMatch.player2_id);
 
     if (!player1 || !player2) {
-      return (
-        <ErrorAlert 
-          error="Players not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Players not found" onRetry={onReset} />;
     }
 
     return (
@@ -78,13 +66,13 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
             {
               student_id: player1.id,
               student: player1,
-              elo_before: currentMatch.player1_elo_before
+              elo_before: currentMatch.player1_elo_before,
             },
             {
               student_id: player2.id,
               student: player2,
-              elo_before: currentMatch.player2_elo_before
-            }
+              elo_before: currentMatch.player2_elo_before,
+            },
           ]}
           onAnimationComplete={handleVersusAnimationDone}
         />
@@ -94,39 +82,22 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
 
   const renderBattleScreen = () => {
     if (step !== ArenaStep.BATTLE) return null;
-    
     if (!currentMatch || !currentFlashcard) {
-      return (
-        <ErrorAlert 
-          error="Battle data not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
     }
 
     const player1 = students.find(s => s.id === currentMatch.player1_id);
     const player2 = students.find(s => s.id === currentMatch.player2_id);
 
     if (!player1 || !player2) {
-      return (
-        <ErrorAlert 
-          error="Players not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Players not found" onRetry={onReset} />;
     }
 
     return (
       <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
-        <Stack align="center" gap="xl">
-          <Card shadow="sm" p="lg" radius="md" withBorder style={{ width: '100%', maxWidth: 600 }}>
-            <Stack gap="md">
-              <Text size="xl" fw={700}>{currentFlashcard.question}</Text>
-              <Text size="lg">{currentFlashcard.answer}</Text>
-            </Stack>
-          </Card>
-
+        <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
           <ArenaBattleCard
+            flashcard={currentFlashcard}
             player1={player1}
             player2={player2}
             roundsCompleted={arenaSession?.rounds_completed || 0}
@@ -144,14 +115,8 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
 
   const renderFinalResult = () => {
     if (step !== ArenaStep.FINAL_RESULT) return null;
-    
     if (!arenaSession) {
-      return (
-        <ErrorAlert 
-          error="Session data not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Session data not found" onRetry={onReset} />;
     }
 
     return (
@@ -166,14 +131,11 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
     );
   };
 
-  switch (step) {
-    case ArenaStep.VERSUS:
-      return renderVersusScreen();
-    case ArenaStep.BATTLE:
-      return renderBattleScreen();
-    case ArenaStep.FINAL_RESULT:
-      return renderFinalResult();
-    default:
-      return null;
-  }
+  return (
+    <Box data-testid="arena-battle" style={{ width: '100%', position: 'relative' }}>
+      {renderVersusScreen()}
+      {renderBattleScreen()}
+      {renderFinalResult()}
+    </Box>
+  );
 };

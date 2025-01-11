@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Box,
   Button,
@@ -7,10 +7,9 @@ import {
   Select,
   Stack,
   Text,
+  Textarea,
+  rem,
 } from '@mantine/core';
-import { RichTextEditor } from '@mantine/tiptap';
-import { useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { motion } from 'framer-motion';
 import { IconDeviceFloppy, IconX } from '@tabler/icons-react';
 import { DifficultyLevel, Flashcard } from '../../types';
@@ -27,40 +26,37 @@ export function FlashcardEditor({
   flashcard,
   onClose,
 }: FlashcardEditorProps) {
-  const { addFlashcard, loading, error } = useFlashcardStore();
-  const [difficulty, setDifficulty] = React.useState<DifficultyLevel>(
+  const { addFlashcard, updateFlashcard, loading, error } = useFlashcardStore();
+
+  const [question, setQuestion] = useState<string>(flashcard?.question || '');
+  const [answer, setAnswer] = useState<string>(flashcard?.answer || '');
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>(
     flashcard?.difficulty || DifficultyLevel.MEDIUM
   );
 
-  const questionEditor = useEditor({
-    extensions: [StarterKit],
-    content: flashcard?.question || '<p></p>',
-    editable: true,
-  });
-
-  const answerEditor = useEditor({
-    extensions: [StarterKit],
-    content: flashcard?.answer || '<p></p>',
-    editable: true,
-  });
-
   const handleSave = useCallback(async () => {
-    if (!questionEditor || !answerEditor) return;
-    const questionHTML = questionEditor.getHTML();
-    const answerHTML = answerEditor.getHTML();
-    
-    if (!questionHTML.trim() || !answerHTML.trim()) {
+    if (!question.trim() || !answer.trim()) {
       return;
     }
 
-    await addFlashcard({
-      question: questionHTML,
-      answer: answerHTML,
+    const payload = {
+      question,
+      answer,
       pack_id: packId,
-      difficulty: difficulty
-    });
-    onClose();
-  }, [questionEditor, answerEditor, addFlashcard, packId, difficulty, onClose]);
+      difficulty,
+    };
+
+    try {
+      if (flashcard?.id) {
+        await updateFlashcard(flashcard.id, payload);
+      } else {
+        await addFlashcard(payload);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to save flashcard:', err);
+    }
+  }, [question, answer, difficulty, packId, flashcard, onClose, addFlashcard, updateFlashcard]);
 
   return (
     <motion.div
@@ -75,75 +71,47 @@ export function FlashcardEditor({
             <Text fw={500} size="sm" mb="xs">
               Question
             </Text>
-            <RichTextEditor editor={questionEditor}>
-              <RichTextEditor.Toolbar>
-                <RichTextEditor.ControlsGroup>
-                  <RichTextEditor.Bold />
-                  <RichTextEditor.Italic />
-                  <RichTextEditor.Underline />
-                  <RichTextEditor.Strikethrough />
-                </RichTextEditor.ControlsGroup>
-
-                <RichTextEditor.ControlsGroup>
-                  <RichTextEditor.H1 />
-                  <RichTextEditor.H2 />
-                  <RichTextEditor.H3 />
-                </RichTextEditor.ControlsGroup>
-
-                <RichTextEditor.ControlsGroup>
-                  <RichTextEditor.BulletList />
-                  <RichTextEditor.OrderedList />
-                </RichTextEditor.ControlsGroup>
-              </RichTextEditor.Toolbar>
-
-              <RichTextEditor.Content 
-                style={{
-                  minHeight: '200px',
-                  backgroundColor: 'white'
-                }}
-              />
-            </RichTextEditor>
+            <Textarea
+              placeholder="Type the question here..."
+              minRows={6}
+              autosize
+              styles={{
+                input: {
+                  fontSize: rem(14),
+                  lineHeight: 1.5,
+                },
+              }}
+              value={question}
+              onChange={(e) => setQuestion(e.currentTarget.value)}
+            />
           </Box>
 
           <Box>
             <Text fw={500} size="sm" mb="xs">
               Answer
             </Text>
-            <RichTextEditor editor={answerEditor}>
-              <RichTextEditor.Toolbar>
-                <RichTextEditor.ControlsGroup>
-                  <RichTextEditor.Bold />
-                  <RichTextEditor.Italic />
-                  <RichTextEditor.Underline />
-                  <RichTextEditor.Strikethrough />
-                </RichTextEditor.ControlsGroup>
-
-                <RichTextEditor.ControlsGroup>
-                  <RichTextEditor.H1 />
-                  <RichTextEditor.H2 />
-                  <RichTextEditor.H3 />
-                </RichTextEditor.ControlsGroup>
-
-                <RichTextEditor.ControlsGroup>
-                  <RichTextEditor.BulletList />
-                  <RichTextEditor.OrderedList />
-                </RichTextEditor.ControlsGroup>
-              </RichTextEditor.Toolbar>
-
-              <RichTextEditor.Content 
-                style={{
-                  minHeight: '200px',
-                  backgroundColor: 'white'
-                }}
-              />
-            </RichTextEditor>
+            <Textarea
+              placeholder="Type the answer here..."
+              minRows={6}
+              autosize
+              styles={{
+                input: {
+                  fontSize: rem(14),
+                  lineHeight: 1.5,
+                },
+              }}
+              value={answer}
+              onChange={(e) => setAnswer(e.currentTarget.value)}
+            />
           </Box>
 
           <Select
             label="Difficulty"
             value={difficulty}
             onChange={(val) => {
-              if (val) setDifficulty(val as DifficultyLevel);
+              if (val) {
+                setDifficulty(val as DifficultyLevel);
+              }
             }}
             data={[
               { value: DifficultyLevel.EASY, label: 'Easy' },

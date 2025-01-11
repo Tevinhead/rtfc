@@ -25,4 +25,7 @@ export const studentEntityApi: EntityApi<Student> = {
     });
     return response.data.data;
   },
+  delete: async (id: string) => {
+    await studentApi.delete(id);
+  },
 };

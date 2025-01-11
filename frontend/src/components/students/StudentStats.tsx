@@ -18,10 +18,8 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
   );
 
   useEffect(() => {
-    if (student.id && !historyData.length) {
-      void fetchStudentHistory(student.id);
-    }
-  }, [student.id, historyData.length, fetchStudentHistory]);
+    void fetchStudentHistory(student.id);
+  }, [student.id, fetchStudentHistory]);
 
   const eloTimeline = useMemo(() => {
     return historyData.map((mh) => ({

@@ -3262,8 +3262,8 @@ root.render(<App />);
 File: frontend\src\components\arena\ArenaBattle.tsx
 ================================================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Stack, Card, Text } from '@mantine/core';
+import React, { useCallback } from 'react';
+import { Stack, Box } from '@mantine/core';
 import { ErrorAlert } from '../shared/ErrorAlert';
 import { ErrorBoundary } from '../shared/ErrorBoundary';
 import { ArenaBattleCard } from './ArenaBattleCard';
@@ -3304,7 +3304,6 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   onReset,
   isLoading,
 }) => {
-  // We don't need isAnimationComplete state anymore since we only need to disable buttons during VERSUS step
   const canPickWinner = step !== ArenaStep.VERSUS && !isLoading;
 
   const handleVersusAnimationDone = useCallback(() => {
@@ -3313,26 +3312,15 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
 
   const renderVersusScreen = () => {
     if (step !== ArenaStep.VERSUS) return null;
-    
     if (!currentMatch) {
-      return (
-        <ErrorAlert 
-          error="Match data not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Match data not found" onRetry={onReset} />;
     }
 
     const player1 = students.find(s => s.id === currentMatch.player1_id);
     const player2 = students.find(s => s.id === currentMatch.player2_id);
 
     if (!player1 || !player2) {
-      return (
-        <ErrorAlert 
-          error="Players not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Players not found" onRetry={onReset} />;
     }
 
     return (
@@ -3342,13 +3330,13 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
             {
               student_id: player1.id,
               student: player1,
-              elo_before: currentMatch.player1_elo_before
+              elo_before: currentMatch.player1_elo_before,
             },
             {
               student_id: player2.id,
               student: player2,
-              elo_before: currentMatch.player2_elo_before
-            }
+              elo_before: currentMatch.player2_elo_before,
+            },
           ]}
           onAnimationComplete={handleVersusAnimationDone}
         />
@@ -3358,39 +3346,22 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
 
   const renderBattleScreen = () => {
     if (step !== ArenaStep.BATTLE) return null;
-    
     if (!currentMatch || !currentFlashcard) {
-      return (
-        <ErrorAlert 
-          error="Battle data not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
     }
 
     const player1 = students.find(s => s.id === currentMatch.player1_id);
     const player2 = students.find(s => s.id === currentMatch.player2_id);
 
     if (!player1 || !player2) {
-      return (
-        <ErrorAlert 
-          error="Players not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Players not found" onRetry={onReset} />;
     }
 
     return (
       <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
-        <Stack align="center" gap="xl">
-          <Card shadow="sm" p="lg" radius="md" withBorder style={{ width: '100%', maxWidth: 600 }}>
-            <Stack gap="md">
-              <Text size="xl" fw={700}>{currentFlashcard.question}</Text>
-              <Text size="lg">{currentFlashcard.answer}</Text>
-            </Stack>
-          </Card>
-
+        <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
           <ArenaBattleCard
+            flashcard={currentFlashcard}
             player1={player1}
             player2={player2}
             roundsCompleted={arenaSession?.rounds_completed || 0}
@@ -3408,14 +3379,8 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
 
   const renderFinalResult = () => {
     if (step !== ArenaStep.FINAL_RESULT) return null;
-    
     if (!arenaSession) {
-      return (
-        <ErrorAlert 
-          error="Session data not found" 
-          onRetry={onReset}
-        />
-      );
+      return <ErrorAlert error="Session data not found" onRetry={onReset} />;
     }
 
     return (
@@ -3430,16 +3395,13 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
     );
   };
 
-  switch (step) {
-    case ArenaStep.VERSUS:
-      return renderVersusScreen();
-    case ArenaStep.BATTLE:
-      return renderBattleScreen();
-    case ArenaStep.FINAL_RESULT:
-      return renderFinalResult();
-    default:
-      return null;
-  }
+  return (
+    <Box data-testid="arena-battle" style={{ width: '100%', position: 'relative' }}>
+      {renderVersusScreen()}
+      {renderBattleScreen()}
+      {renderFinalResult()}
+    </Box>
+  );
 };
 
 
@@ -3462,10 +3424,11 @@ import {
 } from '@mantine/core';
 import { motion } from 'framer-motion';
 import { IconSword, IconTrophy } from '@tabler/icons-react';
-import { Student } from '../../types';
+import { Student, Flashcard } from '../../types';
 import { useSound } from '../../hooks/useSound';
 
 interface ArenaBattleCardProps {
+  flashcard: Flashcard;
   player1: Student;
   player2: Student;
   roundsCompleted: number;
@@ -3478,6 +3441,7 @@ interface ArenaBattleCardProps {
 }
 
 export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
+  flashcard,
   player1,
   player2,
   roundsCompleted,
@@ -3498,6 +3462,7 @@ export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
 
   return (
     <Stack style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }} gap="md">
+      {/* Progress Card */}
       <Card shadow="sm" p="md" radius="md" withBorder>
         <Text size="lg" fw={700} ta="center" mb="md">
           Battle {roundsCompleted + 1} of {totalRounds}
@@ -3510,6 +3475,29 @@ export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
         />
       </Card>
 
+      {/* Flashcard */}
+      <Card 
+        shadow="lg" 
+        p="xl" 
+        radius="md" 
+        withBorder
+        style={{
+          background: 'linear-gradient(135deg, #FEE140 0%, #FA709A 100%)',
+          color: '#333',
+          minHeight: '200px',
+        }}
+      >
+        <Stack gap="md">
+          <Text size="xl" fw={800} ta="center">
+            {flashcard.question}
+          </Text>
+          <Text size="lg" ta="center">
+            {flashcard.answer}
+          </Text>
+        </Stack>
+      </Card>
+
+      {/* Battle Card */}
       <Card shadow="sm" p="md" radius="md" withBorder>
         <Group justify="space-between" mb="xl">
           {/* Player 1 */}
@@ -3707,7 +3695,7 @@ File: frontend\src\components\arena\ArenaResultScreen.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, Text, Stack, Button, Group, Badge, Grid, Table } from '@mantine/core';
-import { IconTrophy, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { IconTrophy, IconArrowUp, IconArrowDown, IconConfetti } from '@tabler/icons-react';
 
 interface StudentStats {
   student_id: string;
@@ -3751,35 +3739,71 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
+      exit={{ opacity: 0, scale: 0.85 }}
+      transition={{
+        type: 'spring',
+        stiffness: 100,
+        damping: 15,
+      }}
       style={{
         width: '100%',
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '2rem'
+        padding: '2rem',
       }}
     >
-      <Card shadow="lg" p="xl" radius="md" withBorder>
+      <Card
+        shadow="lg"
+        p="xl"
+        radius="md"
+        withBorder
+        style={{
+          background: 'linear-gradient(45deg, #F8FFAE, #43C6AC)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Confetti Icon in BG */}
+        <motion.div
+          initial={{ rotate: 0 }}
+          animate={{ rotate: 360 }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
+          style={{
+            position: 'absolute',
+            top: '-50px',
+            right: '-50px',
+            opacity: 0.2,
+          }}
+        >
+          <IconConfetti size={200} />
+        </motion.div>
+
         <Stack align="center" gap="xl">
           {/* Title */}
           <motion.div
-            initial={{ y: -50 }}
-            animate={{ y: 0 }}
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
             transition={{
               type: 'spring',
               stiffness: 300,
-              damping: 15
+              damping: 15,
             }}
           >
             <Text
               size="xl"
               fw={900}
-              variant="gradient"
-              gradient={{ from: 'gold', to: 'yellow', deg: 45 }}
-              ta="center"
-              style={{ fontSize: '3rem' }}
+              style={{
+                fontSize: '3rem',
+                textAlign: 'center',
+                color: '#fff',
+                textShadow: '0 0 20px rgba(0,0,0,0.4)',
+              }}
             >
               Arena Complete!
             </Text>
@@ -3789,10 +3813,21 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
           <Grid gutter="xl" style={{ width: '100%' }}>
             {sortedResults.slice(0, 3).map((student, index) => (
               <Grid.Col key={student.student_id} span={4}>
-                <Card shadow="sm" p="lg" radius="md" withBorder>
+                <Card
+                  shadow="md"
+                  p="lg"
+                  radius="md"
+                  withBorder
+                  style={{
+                    background: 'rgba(255,255,255,0.8)',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
                   <Stack align="center" gap="md">
                     <RankBadge rank={index + 1} />
-                    <Text size="xl" fw={700}>{student.name}</Text>
+                    <Text size="xl" fw={700}>
+                      {student.name}
+                    </Text>
                     <Badge size="lg" variant="filled" color="blue">
                       {student.elo_rating} ELO
                     </Badge>
@@ -3800,12 +3835,13 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
                       <Badge color="green">Wins: {student.wins}</Badge>
                       <Badge color="red">Losses: {student.losses}</Badge>
                     </Group>
-                    <Text 
-                      size="lg" 
+                    <Text
+                      size="lg"
                       c={student.elo_change >= 0 ? 'green' : 'red'}
                       fw={700}
                     >
-                      {student.elo_change > 0 ? '+' : ''}{Math.round(student.elo_change)} ELO
+                      {student.elo_change > 0 ? '+' : ''}
+                      {Math.round(student.elo_change)} ELO
                     </Text>
                   </Stack>
                 </Card>
@@ -3814,63 +3850,68 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
           </Grid>
 
           {/* Full Results Table */}
-          <Card shadow="sm" p="lg" radius="md" withBorder style={{ width: '100%' }}>
-            <Text size="lg" fw={700} mb="md">Final Rankings</Text>
-            <Table>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Rank</Table.Th>
-                  <Table.Th>Name</Table.Th>
-                  <Table.Th>W/L</Table.Th>
-                  <Table.Th>Fights</Table.Th>
-                  <Table.Th>Final ELO</Table.Th>
-                  <Table.Th>ELO Change</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {sortedResults.map((student, index) => (
-                  <Table.Tr key={student.student_id}>
-                    <Table.Td>
-                      <RankBadge rank={index + 1} />
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{student.name}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <Text c="green">{student.wins}</Text>
-                        <Text>/</Text>
-                        <Text c="red">{student.losses}</Text>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>{student.fights_played}</Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{student.elo_rating}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        {student.elo_change >= 0 ? (
-                          <IconArrowUp size={16} color="green" />
-                        ) : (
-                          <IconArrowDown size={16} color="red" />
-                        )}
-                        <Text 
-                          c={student.elo_change >= 0 ? 'green' : 'red'}
-                          fw={500}
-                        >
-                          {student.elo_change > 0 ? '+' : ''}{Math.round(student.elo_change)}
-                        </Text>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
+          <Card
+            shadow="sm"
+            p="lg"
+            radius="md"
+            withBorder
+            style={{ width: '100%', background: 'rgba(255,255,255,0.9)' }}
+          >
+            <Text size="lg" fw={700} mb="md">
+              Final Rankings
+            </Text>
+            <Table striped highlightOnHover>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Name</th>
+                  <th>W/L</th>
+                  <th>Fights</th>
+                  <th>Final ELO</th>
+                  <th>ELO Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedResults.map((student, index) => {
+                  const isPositive = student.elo_change >= 0;
+                  return (
+                    <tr key={student.student_id}>
+                      <td>
+                        <RankBadge rank={index + 1} />
+                      </td>
+                      <td>{student.name}</td>
+                      <td>
+                        <Group gap="xs">
+                          <Text c="green">{student.wins}</Text>
+                          <Text>/</Text>
+                          <Text c="red">{student.losses}</Text>
+                        </Group>
+                      </td>
+                      <td>{student.fights_played}</td>
+                      <td>{student.elo_rating}</td>
+                      <td>
+                        <Group gap="xs">
+                          {isPositive ? (
+                            <IconArrowUp size={16} color="green" />
+                          ) : (
+                            <IconArrowDown size={16} color="red" />
+                          )}
+                          <Text c={isPositive ? 'green' : 'red'} fw={500}>
+                            {isPositive ? '+' : ''}
+                            {Math.round(student.elo_change)}
+                          </Text>
+                        </Group>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </Table>
           </Card>
 
           {/* Finish Button */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1 }}
           >
@@ -4762,8 +4803,8 @@ File: frontend\src\components\arena\VersusScreen.tsx
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Card, Text, Avatar, Stack, Grid, Box, Center } from '@mantine/core';
-import { Student, MatchParticipant } from '../../types';
+import { Text, Avatar, Grid, Box } from '@mantine/core';
+import { MatchParticipant } from '../../types';
 
 interface VersusScreenProps {
   participants?: MatchParticipant[];
@@ -4779,7 +4820,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       onAnimationComplete();
-    }, 2000);
+    }, 2500); // Extend to 2.5 seconds for a more dramatic effect
     return () => {
       clearTimeout(timer);
     };
@@ -4789,172 +4830,153 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
     return <Box>No participants available</Box>;
   }
 
+  // Big vs text animations with proper typing
+  const vsVariants = {
+    initial: { scale: 0, rotate: 0 },
+    animate: {
+      scale: 1.4,
+      rotate: [-3, 3],
+      transition: {
+        scale: {
+          duration: 2,
+          repeat: Infinity,
+          repeatType: "reverse" as const,
+          ease: "easeInOut"
+        },
+        rotate: {
+          duration: 2,
+          repeat: Infinity,
+          repeatType: "reverse" as const,
+          ease: "easeInOut"
+        }
+      }
+    }
+  };
+
   return (
-    <motion.div
+    <Box
       data-testid="versus-screen"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{
-        duration: 1,
-        type: 'spring',
-        stiffness: 100,
-        damping: 15
-      }}
       style={{
+        position: 'relative',
         width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        minHeight: '70vh',
+        background: 'linear-gradient(to bottom right, #A18CD1, #FBC2EB)',
+        borderRadius: '10px',
         padding: '2rem',
-        background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 100%)'
+        overflow: 'hidden',
       }}
     >
-      <Grid style={{ width: '100%', maxWidth: '1200px', position: 'relative' }}>
-        {/* VS Text */}
+      <Grid
+        justify="center"
+        align="center"
+        style={{
+          height: '100%',
+          position: 'relative',
+          zIndex: 1
+        }}
+      >
+        {/* VS TEXT */}
         <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 1, duration: 0.5 }}
+          variants={vsVariants}
+          initial="initial"
+          animate="animate"
           style={{
             position: 'absolute',
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            zIndex: 10
+            zIndex: 10,
           }}
         >
           <Text
-            size="64px"
             fw={900}
             style={{
-              background: 'linear-gradient(45deg, #ff6b6b, #4dabf7)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: '0 0 20px rgba(0,0,0,0.2)'
+              fontSize: '5rem',
+              color: 'white',
+              textShadow: '0 0 20px rgba(0,0,0,0.3)',
             }}
           >
             VS
           </Text>
         </motion.div>
 
+        {/* PLAYER CARDS */}
         {participants.map((participant, index) => {
-          if (!participant.student) {
-            return null;
-          }
+          if (!participant.student) return null;
+          const isLeft = index === 0;
 
-          const isPlayer1 = index === 0;
-          const playerColor = isPlayer1 ? '#4dabf7' : '#ff6b6b';
-          const playerColorDark = isPlayer1 ? '#228be6' : '#fa5252';
-
+          const xStart = isLeft ? -100 : 100;
           return (
             <Grid.Col key={participant.student_id} span={6}>
               <motion.div
-                initial={{
-                  x: isPlayer1 ? -100 : 100,
-                  opacity: 0
-                }}
-                animate={{
-                  x: 0,
-                  opacity: 1
-                }}
+                initial={{ x: xStart, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
                 transition={{
                   type: 'spring',
-                  stiffness: 100,
+                  stiffness: 80,
                   damping: 15,
-                  delay: 0.5
+                  delay: 0.2 + index * 0.3,
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
                 }}
               >
-                <Card 
-                  shadow="xl" 
-                  p="xl" 
-                  radius="md" 
-                  withBorder 
+                <Box
                   style={{
-                    background: 'linear-gradient(45deg, rgba(0,0,0,0.02) 0%, rgba(255,255,255,0.1) 100%)',
-                    borderColor: playerColor,
-                    borderWidth: '2px'
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.3)',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.15)',
+                    backdropFilter: 'blur(6px)',
+                    textAlign: 'center',
+                    width: '100%',
+                    maxWidth: '300px',
                   }}
                 >
-                  <Stack align="center" gap="md">
-                    <Box
-                      style={{
-                        position: 'relative',
-                        padding: '8px',
-                        borderRadius: '50%',
-                        background: `linear-gradient(45deg, ${playerColor}, ${playerColorDark})`,
-                        boxShadow: `0 0 20px ${playerColor}50`
-                      }}
-                    >
-                      <motion.div
-                        animate={{
-                          scale: [1, 1.05, 1],
-                          rotate: [0, 3, -3, 0]
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          repeatType: "reverse"
-                        }}
-                      >
-                        <Avatar
-                          src={participant.student.avatar_url || undefined}
-                          alt={participant.student.name}
-                          size={150}
-                          radius={75}
-                          color={isPlayer1 ? 'blue' : 'red'}
-                          style={{
-                            border: `4px solid ${playerColorDark}`,
-                            boxShadow: `0 0 10px ${playerColor}`
-                          }}
-                        >
-                          {(!participant.student.avatar_url && participant.student.name)
-                            ? participant.student.name.charAt(0)
-                            : ''}
-                        </Avatar>
-                      </motion.div>
-                    </Box>
-                    <Text 
-                      size="xl" 
-                      fw={700}
-                      style={{
-                        background: `linear-gradient(45deg, ${playerColor}, ${playerColorDark})`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent'
-                      }}
-                    >
-                      {participant.student.name}
-                    </Text>
-                    <Stack gap="xs">
-                      <Text 
-                        size="lg" 
-                        fw={600}
-                        style={{
-                          color: playerColorDark
-                        }}
-                      >
-                        ELO: {participant.elo_before}
-                      </Text>
-                      <Text 
-                        size="sm"
-                        style={{
-                          background: `linear-gradient(45deg, ${playerColor}, ${playerColorDark})`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent'
-                        }}
-                      >
-                        W: {participant.student.wins} L: {participant.student.losses}
-                      </Text>
-                    </Stack>
-                  </Stack>
-                </Card>
+                  <Avatar
+                    src={participant.student.avatar_url || undefined}
+                    alt={participant.student.name}
+                    size={120}
+                    radius={60}
+                    style={{
+                      margin: '0 auto',
+                      border: '4px solid white',
+                    }}
+                  >
+                    {(!participant.student.avatar_url && participant.student.name)
+                      ? participant.student.name.charAt(0)
+                      : ''}
+                  </Avatar>
+                  <Text
+                    size="xl"
+                    fw={700}
+                    mt="md"
+                    style={{
+                      color: 'white',
+                      textShadow: '0 0 4px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    {participant.student.name}
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      color: '#f0f0f0',
+                      marginTop: '0.25rem'
+                    }}
+                  >
+                    ELO: {participant.elo_before}
+                  </Text>
+                </Box>
               </motion.div>
             </Grid.Col>
           );
         })}
       </Grid>
-    </motion.div>
+    </Box>
   );
 };
 
@@ -8089,11 +8111,17 @@ export function StudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
-  const handleSubmit = useCallback(async (values: { name: string }) => {
+  const handleSubmit = useCallback(async (values: { name: string; avatar_url?: string }) => {
     if (selectedStudent) {
-      await updateStudent(selectedStudent.id, { name: values.name });
+      await updateStudent(selectedStudent.id, { 
+        name: values.name,
+        avatar_url: values.avatar_url
+      });
     } else {
-      await addStudent({ name: values.name });
+      await addStudent({ 
+        name: values.name,
+        avatar_url: values.avatar_url
+      });
     }
     setFormModalOpen(false);
     setSelectedStudent(null);
@@ -9299,12 +9327,14 @@ export const studentEntityApi: EntityApi<Student> = {
   create: async (data: Partial<Student>) => {
     const response = await studentApi.create({
       name: data.name as string,
+      avatar_url: data.avatar_url as string,
     });
     return response.data.data;
   },
   update: async (id: string, data: Partial<Student>) => {
     const response = await studentApi.update(id, {
       name: data.name as string,
+      avatar_url: data.avatar_url as string,
     });
     return response.data.data;
   },

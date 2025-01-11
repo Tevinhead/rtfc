@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StudentList } from '../components/students/StudentList';
 import { StudentForm } from '../components/students/StudentForm';
-import { Title, Alert, Button, Modal, Group } from '@mantine/core';
+import { Title, Alert, Button, Modal, Group, Text, Stack } from '@mantine/core';
 import { useStudentStore } from '../stores';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import { Student } from '../types';
 
 export function StudentsPage() {
-  const { students, loading, error, fetchStudents, addStudent, updateStudent } = useStudentStore();
+  const { students, loading, error, fetchStudents, addStudent, updateStudent, deleteStudent } = useStudentStore();
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
 
   useEffect(() => {
     fetchStudents();
@@ -39,6 +41,24 @@ export function StudentsPage() {
   const handleModalClose = useCallback(() => {
     setFormModalOpen(false);
     setSelectedStudent(null);
+  }, []);
+
+  const handleDeleteClick = useCallback((student: Student) => {
+    setStudentToDelete(student);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (studentToDelete) {
+      await deleteStudent(studentToDelete.id);
+      setDeleteModalOpen(false);
+      setStudentToDelete(null);
+    }
+  }, [deleteStudent, studentToDelete]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+    setStudentToDelete(null);
   }, []);
 
   const handleAddClick = useCallback(() => {
@@ -79,6 +99,7 @@ export function StudentsPage() {
       <StudentList 
         students={students} 
         onEdit={handleEdit}
+        onDelete={handleDeleteClick}
         loading={loading}
         error={error}
       />
@@ -93,6 +114,20 @@ export function StudentsPage() {
           onSubmit={handleSubmit}
           onCancel={handleModalClose}
         />
+      </Modal>
+
+      <Modal
+        opened={deleteModalOpen}
+        onClose={handleDeleteCancel}
+        title="Delete Student"
+      >
+        <Stack>
+          <Text>Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.</Text>
+          <Group justify="flex-end">
+            <Button variant="light" onClick={handleDeleteCancel}>Cancel</Button>
+            <Button color="red" onClick={handleDeleteConfirm}>Delete</Button>
+          </Group>
+        </Stack>
       </Modal>
     </>
   );

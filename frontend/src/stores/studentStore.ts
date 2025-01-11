@@ -111,6 +111,12 @@ const createStore = (baseSet: any, get: any, _store: any): StudentStoreState => 
     },
 
     fetchStudentHistory: async (studentId: string) => {
+      // Skip if we already have the history
+      const currentState = get();
+      if (studentId in currentState.studentHistory) {
+        return;
+      }
+      
       set({ loading: true, error: null });
       try {
         const response = await studentApi.getHistory(studentId);

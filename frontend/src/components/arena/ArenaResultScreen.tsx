@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, Text, Stack, Button, Group, Badge, Grid, Table } from '@mantine/core';
-import { IconTrophy, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { IconTrophy, IconArrowUp, IconArrowDown, IconConfetti } from '@tabler/icons-react';
 
 interface StudentStats {
   student_id: string;
@@ -45,35 +45,71 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
+      exit={{ opacity: 0, scale: 0.85 }}
+      transition={{
+        type: 'spring',
+        stiffness: 100,
+        damping: 15,
+      }}
       style={{
         width: '100%',
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '2rem'
+        padding: '2rem',
       }}
     >
-      <Card shadow="lg" p="xl" radius="md" withBorder>
+      <Card
+        shadow="lg"
+        p="xl"
+        radius="md"
+        withBorder
+        style={{
+          background: 'linear-gradient(45deg, #F8FFAE, #43C6AC)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Confetti Icon in BG */}
+        <motion.div
+          initial={{ rotate: 0 }}
+          animate={{ rotate: 360 }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
+          style={{
+            position: 'absolute',
+            top: '-50px',
+            right: '-50px',
+            opacity: 0.2,
+          }}
+        >
+          <IconConfetti size={200} />
+        </motion.div>
+
         <Stack align="center" gap="xl">
           {/* Title */}
           <motion.div
-            initial={{ y: -50 }}
-            animate={{ y: 0 }}
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
             transition={{
               type: 'spring',
               stiffness: 300,
-              damping: 15
+              damping: 15,
             }}
           >
             <Text
               size="xl"
               fw={900}
-              variant="gradient"
-              gradient={{ from: 'gold', to: 'yellow', deg: 45 }}
-              ta="center"
-              style={{ fontSize: '3rem' }}
+              style={{
+                fontSize: '3rem',
+                textAlign: 'center',
+                color: '#fff',
+                textShadow: '0 0 20px rgba(0,0,0,0.4)',
+              }}
             >
               Arena Complete!
             </Text>
@@ -83,10 +119,21 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
           <Grid gutter="xl" style={{ width: '100%' }}>
             {sortedResults.slice(0, 3).map((student, index) => (
               <Grid.Col key={student.student_id} span={4}>
-                <Card shadow="sm" p="lg" radius="md" withBorder>
+                <Card
+                  shadow="md"
+                  p="lg"
+                  radius="md"
+                  withBorder
+                  style={{
+                    background: 'rgba(255,255,255,0.8)',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
                   <Stack align="center" gap="md">
                     <RankBadge rank={index + 1} />
-                    <Text size="xl" fw={700}>{student.name}</Text>
+                    <Text size="xl" fw={700}>
+                      {student.name}
+                    </Text>
                     <Badge size="lg" variant="filled" color="blue">
                       {student.elo_rating} ELO
                     </Badge>
@@ -94,12 +141,13 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
                       <Badge color="green">Wins: {student.wins}</Badge>
                       <Badge color="red">Losses: {student.losses}</Badge>
                     </Group>
-                    <Text 
-                      size="lg" 
+                    <Text
+                      size="lg"
                       c={student.elo_change >= 0 ? 'green' : 'red'}
                       fw={700}
                     >
-                      {student.elo_change > 0 ? '+' : ''}{Math.round(student.elo_change)} ELO
+                      {student.elo_change > 0 ? '+' : ''}
+                      {Math.round(student.elo_change)} ELO
                     </Text>
                   </Stack>
                 </Card>
@@ -108,63 +156,68 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
           </Grid>
 
           {/* Full Results Table */}
-          <Card shadow="sm" p="lg" radius="md" withBorder style={{ width: '100%' }}>
-            <Text size="lg" fw={700} mb="md">Final Rankings</Text>
-            <Table>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Rank</Table.Th>
-                  <Table.Th>Name</Table.Th>
-                  <Table.Th>W/L</Table.Th>
-                  <Table.Th>Fights</Table.Th>
-                  <Table.Th>Final ELO</Table.Th>
-                  <Table.Th>ELO Change</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {sortedResults.map((student, index) => (
-                  <Table.Tr key={student.student_id}>
-                    <Table.Td>
-                      <RankBadge rank={index + 1} />
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{student.name}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <Text c="green">{student.wins}</Text>
-                        <Text>/</Text>
-                        <Text c="red">{student.losses}</Text>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>{student.fights_played}</Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{student.elo_rating}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        {student.elo_change >= 0 ? (
-                          <IconArrowUp size={16} color="green" />
-                        ) : (
-                          <IconArrowDown size={16} color="red" />
-                        )}
-                        <Text 
-                          c={student.elo_change >= 0 ? 'green' : 'red'}
-                          fw={500}
-                        >
-                          {student.elo_change > 0 ? '+' : ''}{Math.round(student.elo_change)}
-                        </Text>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
+          <Card
+            shadow="sm"
+            p="lg"
+            radius="md"
+            withBorder
+            style={{ width: '100%', background: 'rgba(255,255,255,0.9)' }}
+          >
+            <Text size="lg" fw={700} mb="md">
+              Final Rankings
+            </Text>
+            <Table striped highlightOnHover>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Name</th>
+                  <th>W/L</th>
+                  <th>Fights</th>
+                  <th>Final ELO</th>
+                  <th>ELO Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedResults.map((student, index) => {
+                  const isPositive = student.elo_change >= 0;
+                  return (
+                    <tr key={student.student_id}>
+                      <td>
+                        <RankBadge rank={index + 1} />
+                      </td>
+                      <td>{student.name}</td>
+                      <td>
+                        <Group gap="xs">
+                          <Text c="green">{student.wins}</Text>
+                          <Text>/</Text>
+                          <Text c="red">{student.losses}</Text>
+                        </Group>
+                      </td>
+                      <td>{student.fights_played}</td>
+                      <td>{student.elo_rating}</td>
+                      <td>
+                        <Group gap="xs">
+                          {isPositive ? (
+                            <IconArrowUp size={16} color="green" />
+                          ) : (
+                            <IconArrowDown size={16} color="red" />
+                          )}
+                          <Text c={isPositive ? 'green' : 'red'} fw={500}>
+                            {isPositive ? '+' : ''}
+                            {Math.round(student.elo_change)}
+                          </Text>
+                        </Group>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </Table>
           </Card>
 
           {/* Finish Button */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1 }}
           >
