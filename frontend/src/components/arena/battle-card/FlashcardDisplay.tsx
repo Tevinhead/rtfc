@@ -42,8 +42,11 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
       style={{
         perspective: '1000px',
         width: '100%',
-        height: '420px',
+        maxHeight: '420px',
+        height: 'auto',
+        minHeight: '300px',
         position: 'relative',
+        padding: '1rem',
       }}
     >
       <motion.div

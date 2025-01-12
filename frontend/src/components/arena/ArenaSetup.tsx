@@ -108,10 +108,10 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
           <SimpleGrid
             cols={3}
             style={{
-              [`@media (max-width: 1000px)`]: {
+              [`@media (max-width: 62.5em)`]: {
                 gridTemplateColumns: 'repeat(2, 1fr)',
               },
-              [`@media (max-width: 600px)`]: {
+              [`@media (max-width: 37.5em)`]: {
                 gridTemplateColumns: 'repeat(1, 1fr)',
               },
             }}

@@ -55,7 +55,7 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
       }}
       style={{
         width: '100%',
-        maxWidth: '1200px',
+        maxWidth: '95%',
         margin: '0 auto',
         padding: '2rem',
       }}

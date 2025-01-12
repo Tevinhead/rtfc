@@ -109,8 +109,10 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
               left: '50%',
               top: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '200px',
-              height: '200px',
+              width: '30vw',
+              height: '30vw',
+              maxHeight: '200px',
+              maxWidth: '200px',
               background: 'radial-gradient(circle, rgba(255,215,0,0.2) 0%, transparent 70%)',
               borderRadius: '50%',
               filter: 'blur(20px)',
@@ -130,7 +132,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
             <Text
               fw={900}
               style={{
-                fontSize: rem(140),
+                fontSize: 'clamp(6rem, 20vw, 10rem)',
                 color: '#FFD700',
                 textShadow: '0 0 30px rgba(255,215,0,0.5), 0 0 60px rgba(255,215,0,0.3), 0 0 90px rgba(255,215,0,0.2)',
                 letterSpacing: '8px',
@@ -149,75 +151,64 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
 
           return (
             <Grid.Col key={participant.student_id} span={6}>
-              <motion.div
-                initial={{ x: xStart, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 60,
-                  damping: 12,
-                  delay: 0.2 + index * 0.3,
-                }}
-                style={{
+              <motion.div initial={{
+                x: xStart,
+                opacity: 0
+              }} animate={{
+                x: 0,
+                opacity: 1
+              }} transition={{
+                type: 'spring',
+                stiffness: 60,
+                damping: 12,
+                delay: 0.2 + index * 0.3
+              }} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                padding: '0 2rem'
+              }}>
+                <Box style={{
+                  padding: '2rem',
+                  borderRadius: '24px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+                  backdropFilter: 'blur(12px)',
+                  textAlign: 'center',
+                  width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  padding: '0 2rem',
-                }}
-              >
-                <Box
-                  style={{
-                    padding: '2rem',
-                    borderRadius: '24px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
-                    backdropFilter: 'blur(12px)',
-                    textAlign: 'center',
-                    width: '100%',
-                    maxWidth: '360px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '1.5rem',
-                    border: '2px solid rgba(255, 255, 255, 0.15)',
-                    transform: 'translateY(0)',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-5px)'
-                    }
-                  }}
-                >
-                  <Avatar
-                    src={participant.student.avatar_url || undefined}
-                    alt={participant.student.name}
-                    size={140}
-                    radius={70}
-                    style={{
-                      margin: '0 auto',
-                      border: '4px solid rgba(255, 255, 255, 0.9)',
-                      boxShadow: '0 0 30px rgba(0,0,0,0.4), 0 0 60px rgba(255,255,255,0.1)'
-                    }}
-                  >
+                  gap: '1.5rem',
+                  border: '2px solid rgba(255, 255, 255, 0.15)',
+                  transform: 'translateY(0)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-5px)'
+                  }
+                }}>
+                  <Avatar src={participant.student.avatar_url || undefined} alt={participant.student.name} size={140} radius={70} style={{
+                    margin: '0 auto',
+                    border: '4px solid rgba(255, 255, 255, 0.9)',
+                    boxShadow: '0 0 30px rgba(0,0,0,0.4), 0 0 60px rgba(255,255,255,0.1)'
+                  }}>
                     {(!participant.student.avatar_url && participant.student.name)
                       ? participant.student.name.charAt(0)
                       : ''}
                   </Avatar>
-                  <Text
-                    fw={700}
-                    style={{
-                      color: 'white',
-                      textShadow: '0 2px 4px rgba(0,0,0,0.4)',
-                      textAlign: 'center',
-                      width: '100%',
-                      fontSize: 'clamp(32px, 6vw, 48px)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      letterSpacing: '0.5px'
-                    }}
-                  >
+                  <Text fw={700} style={{
+                    color: 'white',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    textAlign: 'center',
+                    width: '100%',
+                    fontSize: 'clamp(28px, 5vw, 40px)',
+                    letterSpacing: '0.5px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
                     {participant.student.name}
                   </Text>
 

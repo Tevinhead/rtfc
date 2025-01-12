@@ -40,7 +40,7 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({
             src={player.avatar_url || undefined}
             alt={player.name}
             radius="xl"
-            size={80}
+            size={64}
             style={{
               border: '2px solid #fff',
               boxShadow: `0 0 10px rgba(${colorGradient.from === '#4dabf7' ? '77, 171, 247' : '255, 107, 107'}, 0.2)`,

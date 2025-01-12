@@ -3543,7 +3543,7 @@ root.render(<App />);
 File: frontend\src\components\arena\ArenaBattle.tsx
 ================================================================================
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Stack, Box } from '@mantine/core';
 import { ErrorAlert } from '../shared/ErrorAlert';
 import { ErrorBoundary } from '../shared/ErrorBoundary';
@@ -3552,6 +3552,7 @@ import { VersusScreen } from './VersusScreen';
 import { ArenaResultScreen } from './ArenaResultScreen';
 import { ArenaStep } from '../../types/arena';
 import type { Student, Flashcard } from '../../types';
+import { useSound } from '../../hooks/useSound';
 
 interface ArenaBattleProps {
   step: ArenaStep;
@@ -3585,7 +3586,48 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   onReset,
   isLoading,
 }) => {
+  // Destructure the sound functions
+  const {
+    playBattleSound,
+    stopBattleSound,
+    playVsSound,
+    playResultSound,
+  } = useSound();
+
   const canPickWinner = step !== ArenaStep.VERSUS && !isLoading;
+
+  /**
+   * Manage sounds based on arena step changes
+   */
+  useEffect(() => {
+    switch (step) {
+      case ArenaStep.VERSUS:
+        // Stop any leftover battle sound
+        stopBattleSound();
+        // Play the vs screen sound once
+        playVsSound();
+        break;
+      case ArenaStep.BATTLE:
+        // Start the looping battle sound
+        playBattleSound();
+        break;
+      case ArenaStep.FINAL_RESULT:
+        // Stop battle sound if it's still playing
+        stopBattleSound();
+        // Play the result screen sound once
+        playResultSound();
+        break;
+      default:
+        // In other steps (SETUP, ROUND_RESULT, etc.), no battle sound is needed
+        stopBattleSound();
+        break;
+    }
+    // Cleanup: if we unmount while battle-sound might be playing
+    return () => {
+      stopBattleSound();
+    };
+  }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
+
 
   const handleVersusAnimationDone = useCallback(() => {
     onVersusReady();
@@ -3727,7 +3769,7 @@ export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
   canPickWinner,
 }) => {
   return (
-    <Stack style={{ width: '100%', maxWidth: '860px', margin: '0 auto' }} gap="md">
+    <Stack style={{ width: '100%', maxWidth: '95%', margin: '0 auto' }} gap="md">
       <BattleProgress
         roundsCompleted={roundsCompleted}
         totalRounds={totalRounds}
@@ -3822,7 +3864,7 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
       }}
       style={{
         width: '100%',
-        maxWidth: '1200px',
+        maxWidth: '95%',
         margin: '0 auto',
         padding: '2rem',
       }}
@@ -4119,10 +4161,10 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
           <SimpleGrid
             cols={3}
             style={{
-              [`@media (max-width: 1000px)`]: {
+              [`@media (max-width: 62.5em)`]: {
                 gridTemplateColumns: 'repeat(2, 1fr)',
               },
-              [`@media (max-width: 600px)`]: {
+              [`@media (max-width: 37.5em)`]: {
                 gridTemplateColumns: 'repeat(1, 1fr)',
               },
             }}
@@ -5084,8 +5126,10 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
               left: '50%',
               top: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '200px',
-              height: '200px',
+              width: '30vw',
+              height: '30vw',
+              maxHeight: '200px',
+              maxWidth: '200px',
               background: 'radial-gradient(circle, rgba(255,215,0,0.2) 0%, transparent 70%)',
               borderRadius: '50%',
               filter: 'blur(20px)',
@@ -5105,7 +5149,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
             <Text
               fw={900}
               style={{
-                fontSize: rem(140),
+                fontSize: 'clamp(6rem, 20vw, 10rem)',
                 color: '#FFD700',
                 textShadow: '0 0 30px rgba(255,215,0,0.5), 0 0 60px rgba(255,215,0,0.3), 0 0 90px rgba(255,215,0,0.2)',
                 letterSpacing: '8px',
@@ -5124,75 +5168,64 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
 
           return (
             <Grid.Col key={participant.student_id} span={6}>
-              <motion.div
-                initial={{ x: xStart, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 60,
-                  damping: 12,
-                  delay: 0.2 + index * 0.3,
-                }}
-                style={{
+              <motion.div initial={{
+                x: xStart,
+                opacity: 0
+              }} animate={{
+                x: 0,
+                opacity: 1
+              }} transition={{
+                type: 'spring',
+                stiffness: 60,
+                damping: 12,
+                delay: 0.2 + index * 0.3
+              }} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                padding: '0 2rem'
+              }}>
+                <Box style={{
+                  padding: '2rem',
+                  borderRadius: '24px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+                  backdropFilter: 'blur(12px)',
+                  textAlign: 'center',
+                  width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  padding: '0 2rem',
-                }}
-              >
-                <Box
-                  style={{
-                    padding: '2rem',
-                    borderRadius: '24px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
-                    backdropFilter: 'blur(12px)',
-                    textAlign: 'center',
-                    width: '100%',
-                    maxWidth: '360px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '1.5rem',
-                    border: '2px solid rgba(255, 255, 255, 0.15)',
-                    transform: 'translateY(0)',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-5px)'
-                    }
-                  }}
-                >
-                  <Avatar
-                    src={participant.student.avatar_url || undefined}
-                    alt={participant.student.name}
-                    size={140}
-                    radius={70}
-                    style={{
-                      margin: '0 auto',
-                      border: '4px solid rgba(255, 255, 255, 0.9)',
-                      boxShadow: '0 0 30px rgba(0,0,0,0.4), 0 0 60px rgba(255,255,255,0.1)'
-                    }}
-                  >
+                  gap: '1.5rem',
+                  border: '2px solid rgba(255, 255, 255, 0.15)',
+                  transform: 'translateY(0)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-5px)'
+                  }
+                }}>
+                  <Avatar src={participant.student.avatar_url || undefined} alt={participant.student.name} size={140} radius={70} style={{
+                    margin: '0 auto',
+                    border: '4px solid rgba(255, 255, 255, 0.9)',
+                    boxShadow: '0 0 30px rgba(0,0,0,0.4), 0 0 60px rgba(255,255,255,0.1)'
+                  }}>
                     {(!participant.student.avatar_url && participant.student.name)
                       ? participant.student.name.charAt(0)
                       : ''}
                   </Avatar>
-                  <Text
-                    fw={700}
-                    style={{
-                      color: 'white',
-                      textShadow: '0 2px 4px rgba(0,0,0,0.4)',
-                      textAlign: 'center',
-                      width: '100%',
-                      fontSize: 'clamp(32px, 6vw, 48px)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      letterSpacing: '0.5px'
-                    }}
-                  >
+                  <Text fw={700} style={{
+                    color: 'white',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    textAlign: 'center',
+                    width: '100%',
+                    fontSize: 'clamp(28px, 5vw, 40px)',
+                    letterSpacing: '0.5px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
                     {participant.student.name}
                   </Text>
 
@@ -5302,8 +5335,11 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
       style={{
         perspective: '1000px',
         width: '100%',
-        height: '420px',
+        maxHeight: '420px',
+        height: 'auto',
+        minHeight: '300px',
         position: 'relative',
+        padding: '1rem',
       }}
     >
       <motion.div
@@ -5464,7 +5500,7 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({
             src={player.avatar_url || undefined}
             alt={player.name}
             radius="xl"
-            size={80}
+            size={64}
             style={{
               border: '2px solid #fff',
               boxShadow: `0 0 10px rgba(${colorGradient.from === '#4dabf7' ? '77, 171, 247' : '255, 107, 107'}, 0.2)`,
@@ -5578,7 +5614,7 @@ export const WinnerSelection: React.FC<WinnerSelectionProps> = ({
           data-testid={`select-winner-${player1.id}`}
           onClick={() => onSelectWinner([player1.id])}
           disabled={!canPickWinner || isLoading}
-          size="lg"
+          size="md"
           leftSection={<IconTrophy size={20} />}
         >
           {player1.name}
@@ -8594,15 +8630,92 @@ export function useFlashcardFilters(flashcards: Flashcard[]) {
 File: frontend\src\hooks\useSound.ts
 ================================================================================
 
-import { useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
+// Sound files are in public/sounds
+const battleSoundURL = '/sounds/battle-sound.wav';
+const vsScreenSoundURL = '/sounds/vs-screen-sound.wav';
+const resultScreenSoundURL = '/sounds/result-screen-sound.wav';
+
+/**
+ * This hook manages playing/stopping background and one-shot sounds.
+ */
 export const useSound = () => {
-  // Return a no-op function since we don't have valid sound files
-  const playSound = useCallback((_effect: string) => {
-    // Intentionally empty - sounds disabled
+  // We'll keep one "looped" audio ref for the BATTLE step
+  const battleAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize the battle-sound Audio object once
+  useEffect(() => {
+    const audio = new Audio(battleSoundURL);
+    audio.loop = true;
+    audio.volume = 0.3; // 30% volume
+    battleAudioRef.current = audio;
+
+    // Cleanup: stop if unmounted
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
   }, []);
 
-  return { playSound };
+  /**
+   * Start the battle-sound loop (if not already playing).
+   */
+  const playBattleSound = useCallback(() => {
+    if (battleAudioRef.current) {
+      battleAudioRef.current.currentTime = 0; // optional, restart from beginning
+      battleAudioRef.current.play().catch((err) => {
+        console.error('Failed to play battle-sound:', err);
+      });
+    }
+  }, []);
+
+  /**
+   * Stop the battle-sound loop.
+   */
+  const stopBattleSound = useCallback(() => {
+    if (battleAudioRef.current) {
+      battleAudioRef.current.pause();
+      battleAudioRef.current.currentTime = 0;
+    }
+  }, []);
+
+  /**
+   * Play the "vs" screen sound once (80% volume).
+   */
+  const playVsSound = useCallback(() => {
+    const audio = new Audio(vsScreenSoundURL);
+    audio.volume = 0.8;
+    audio.play().catch((err) => {
+      console.error('Failed to play vs-screen-sound:', err);
+    });
+  }, []);
+
+  /**
+   * Play the final "result" screen sound once (70% volume).
+   */
+  const playResultSound = useCallback(() => {
+    const audio = new Audio(resultScreenSoundURL);
+    audio.volume = 0.35;
+    audio.play().catch((err) => {
+      console.error('Failed to play result-screen-sound:', err);
+    });
+  }, []);
+
+  /**
+   * Keep the existing playSound function for backward compatibility
+   */
+  const playSound = useCallback((effect: string) => {
+    // No-op for now, can be expanded later if needed
+  }, []);
+
+  return {
+    playBattleSound,
+    stopBattleSound,
+    playVsSound,
+    playResultSound,
+    playSound, // Keep existing usage safe
+  };
 };
 
 

@@ -34,7 +34,7 @@ export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
   canPickWinner,
 }) => {
   return (
-    <Stack style={{ width: '100%', maxWidth: '860px', margin: '0 auto' }} gap="md">
+    <Stack style={{ width: '100%', maxWidth: '95%', margin: '0 auto' }} gap="md">
       <BattleProgress
         roundsCompleted={roundsCompleted}
         totalRounds={totalRounds}

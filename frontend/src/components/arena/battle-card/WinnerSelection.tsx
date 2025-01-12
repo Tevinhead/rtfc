@@ -69,7 +69,7 @@ export const WinnerSelection: React.FC<WinnerSelectionProps> = ({
           data-testid={`select-winner-${player1.id}`}
           onClick={() => onSelectWinner([player1.id])}
           disabled={!canPickWinner || isLoading}
-          size="lg"
+          size="md"
           leftSection={<IconTrophy size={20} />}
         >
           {player1.name}
