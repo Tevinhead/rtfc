@@ -77,6 +77,7 @@ export const studentApi = {
   delete: (id: string) => axiosInstance.delete(`/students/${id}`),
   getStats: (id: string) => axiosInstance.get<ApiResponse<Student>>(`/students/${id}/stats`),
   getHistory: (id: string) => axiosInstance.get<ApiResponse<any[]>>(`/students/${id}/history`),
+  resetStats: (id: string) => axiosInstance.post<ApiResponse<Student>>(`/students/${id}/reset`),
 };
 
 // Flashcard API

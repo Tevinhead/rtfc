@@ -3,6 +3,7 @@ import { createEntityStore, EntityState } from './createEntityStore';
 import { studentEntityApi } from '../services/studentEntityApi';
 import { studentApi } from '../services/api';
 import type { Student, MatchHistoryItem } from '../types';
+import { useBattleStore } from './battleStore';
 
 interface StudentStoreState {
   // Base state
@@ -18,6 +19,7 @@ interface StudentStoreState {
   // Custom functionality
   updateStudentStats: (studentId: string) => Promise<void>;
   fetchStudentHistory: (studentId: string) => Promise<void>;
+  resetStudentStats: (studentId: string) => Promise<void>;
 }
 
 type SetState = (
@@ -41,39 +43,29 @@ const createCustomSet = (baseSet: SetState): SetState => (partial) => {
 const createStore = (baseSet: any, get: any, _store: any): StudentStoreState => {
   const set = createCustomSet(baseSet as SetState);
 
-  // Create a wrapper function to handle entity state conversion
-  const createEntityStateWrapper = <T>(
-    entityStore: (
-      set: any,
-      get: () => EntityState<T>,
-      store: any
-    ) => EntityState<T>
-  ) => {
-    return (set: any, get: any, store: any): EntityState<T> => {
-      const wrappedGet = () => ({
-        items: [],
-        loading: false,
-        error: null,
-        fetchAll: async () => {},
-        ...get()
-      }) as EntityState<T>;
-      
-      return entityStore(set, wrappedGet, store);
-    };
-  };
-
-  // Create entity store with wrapped state
-  const studentStore = createEntityStateWrapper<Student>(
-    createEntityStore<Student>('students', studentEntityApi)
+  // Create entity store directly
+  const studentStore = createEntityStore<Student>(
+    'students',
+    studentEntityApi
   )(
-    (partial: EntityState<Student> | Partial<EntityState<Student>>) => 
-      set((state) => ({
-        ...state,
-        loading: 'loading' in partial ? partial.loading : state.loading,
-        error: 'error' in partial ? partial.error : state.error,
-        students: 'items' in partial ? partial.items : state.students
-      })),
-    get,
+    (partial) => set((state) => ({
+      ...state,
+      loading: 'loading' in partial ? partial.loading : state.loading,
+      error: 'error' in partial ? partial.error : state.error,
+      students: 'items' in partial ? partial.items : state.students
+    })),
+    () => {
+      const state = get();
+      return {
+        items: state.students,
+        loading: state.loading,
+        error: state.error,
+        fetchAll: state.fetchStudents,
+        createItem: state.addStudent,
+        updateItem: state.updateStudent,
+        deleteItem: state.deleteStudent
+      };
+    },
     _store
   );
 
@@ -133,6 +125,36 @@ const createStore = (baseSet: any, get: any, _store: any): StudentStoreState => 
       } catch (err) {
         console.error('Failed to fetch student history:', err);
         set({ loading: false, error: 'Failed to fetch student history' });
+      }
+    },
+
+    resetStudentStats: async (studentId: string) => {
+      set({ loading: true, error: null });
+      try {
+        const response = await studentApi.resetStats(studentId);
+        
+        // Update student in store
+        set((state) => ({
+          ...state,
+          students: state.students.map((student) =>
+            student.id === studentId ? response.data.data : student
+          ),
+          loading: false,
+          error: null
+        }));
+
+        // Reset arena state if the student is in the current session
+        const battleStore = useBattleStore.getState();
+        const currentSession = battleStore.currentArenaSession;
+        if (currentSession?.participants.some(p => p.student_id === studentId)) {
+          battleStore.resetArena();
+        }
+      } catch (err) {
+        console.error('Failed to reset student stats:', err);
+        set({
+          loading: false,
+          error: 'Failed to reset student stats'
+        });
       }
     }
   };

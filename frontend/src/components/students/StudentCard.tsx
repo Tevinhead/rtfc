@@ -9,6 +9,7 @@ interface StudentCardProps {
   onSelectForBattle?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onReset?: () => void;
   isSelected?: boolean;
 }
 
@@ -18,6 +19,7 @@ export const StudentCard = React.memo(function StudentCard({
   onSelectForBattle,
   onEdit,
   onDelete,
+  onReset,
   isSelected = false
 }: StudentCardProps) {
   const winRateDisplay = useMemo(() => {
@@ -95,6 +97,11 @@ export const StudentCard = React.memo(function StudentCard({
               {onDelete && (
                 <Button variant="light" onClick={onDelete} color="red">
                   Delete
+                </Button>
+              )}
+              {onReset && (
+                <Button variant="light" onClick={onReset} color="yellow">
+                  Reset Stats
                 </Button>
               )}
             </Group>

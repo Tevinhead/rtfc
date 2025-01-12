@@ -7,7 +7,7 @@ import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import { Student } from '../types';
 
 export function StudentsPage() {
-  const { students, loading, error, fetchStudents, addStudent, updateStudent, deleteStudent } = useStudentStore();
+  const { students, loading, error, fetchStudents, addStudent, updateStudent, deleteStudent, resetStudentStats } = useStudentStore();
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -61,6 +61,10 @@ export function StudentsPage() {
     setStudentToDelete(null);
   }, []);
 
+  const handleReset = useCallback(async (student: Student) => {
+    await resetStudentStats(student.id);
+  }, [resetStudentStats]);
+
   const handleAddClick = useCallback(() => {
     setSelectedStudent(null);
     setFormModalOpen(true);
@@ -100,6 +104,7 @@ export function StudentsPage() {
         students={students} 
         onEdit={handleEdit}
         onDelete={handleDeleteClick}
+        onReset={handleReset}
         loading={loading}
         error={error}
       />

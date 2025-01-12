@@ -10,6 +10,7 @@ interface StudentListProps {
   onSelectForBattle?: (student: Student) => void;
   onEdit?: (student: Student) => void;
   onDelete?: (student: Student) => void;
+  onReset?: (student: Student) => void;
   loading?: boolean;
   error?: string | null;
   selectedStudents?: Student[];
@@ -22,7 +23,8 @@ export function StudentList({
   onDelete,
   loading = false,
   error = null,
-  selectedStudents = []
+  selectedStudents = [],
+  onReset
 }: StudentListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -90,6 +92,7 @@ export function StudentList({
                   onSelectForBattle={onSelectForBattle ? () => handleBattleSelect(student) : undefined}
                   onEdit={onEdit ? () => handleEdit(student) : undefined}
                   onDelete={onDelete ? () => onDelete(student) : undefined}
+                  onReset={onReset ? () => onReset(student) : undefined}
                   isSelected={selectedStudents.some(s => s.id === student.id)}
                 />
               </Grid.Col>

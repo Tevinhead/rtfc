@@ -173,6 +173,35 @@ async def get_student_stats(
         )
     return {"data": student}
 
+@router.post("/{student_id}/reset", response_model=DataResponse[StudentResponse])
+async def reset_student_stats(
+    student_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset the specified student's statistics to default values.
+    """
+    result = await db.execute(
+        select(Student).where(Student.id == student_id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+
+    # Reset fields to default values
+    student.elo_rating = 1000.0
+    student.wins = 0
+    student.losses = 0
+    student.total_matches = 0
+
+    await db.commit()
+    await db.refresh(student)
+
+    return {"data": student}
+
 @router.get("/{student_id}/history", response_model=DataResponse[List[MatchHistoryItem]])
 async def get_student_history(
     student_id: UUID,
