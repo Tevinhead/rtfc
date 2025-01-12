@@ -1,49 +1,55 @@
-import { createTheme } from '@mantine/core';
+import { createTheme, MantineTheme } from '@mantine/core';
 
 export const theme = createTheme({
-  primaryColor: 'blue',
+  primaryColor: 'teal',
+
   colors: {
-    // Custom color palette for the app
-    blue: [
-      '#E6F7FF', // 0
-      '#BAE7FF', // 1
-      '#91D5FF', // 2
-      '#69C0FF', // 3
-      '#40A9FF', // 4
-      '#1890FF', // 5 - Primary
-      '#096DD9', // 6
-      '#0050B3', // 7
-      '#003A8C', // 8
-      '#002766', // 9
+    teal: [
+      '#E6FCF5',
+      '#C3FAE8',
+      '#96F2D7',
+      '#63E6BE',
+      '#38D9A9',
+      '#20C997', // primary teal
+      '#12B886',
+      '#0CA678',
+      '#099268',
+      '#087F5B',
     ],
   },
+
   fontFamily: 'Inter, sans-serif',
   headings: {
     fontFamily: 'Inter, sans-serif',
     sizes: {
-      h1: { fontSize: '2.5rem' },
-      h2: { fontSize: '2rem' },
-      h3: { fontSize: '1.75rem' },
-      h4: { fontSize: '1.5rem' },
-      h5: { fontSize: '1.25rem' },
-      h6: { fontSize: '1rem' },
+      h1: { fontSize: '2.25rem', fontWeight: '800' },
+      h2: { fontSize: '1.75rem', fontWeight: '700' },
+      h3: { fontSize: '1.5rem', fontWeight: '600' },
     },
   },
+
+  defaultRadius: 'md',
+
   components: {
     Button: {
       defaultProps: {
         size: 'md',
         radius: 'md',
       },
+      styles: (theme: MantineTheme) => ({
+        root: {
+          fontWeight: 600,
+        },
+      }),
     },
     Card: {
       defaultProps: {
+        p: 'lg',
+        shadow: 'sm',
         radius: 'md',
-        padding: 'lg',
       },
     },
   },
-  defaultRadius: 'md',
   // Custom theme properties for the battle arena
   other: {
     battleArena: {

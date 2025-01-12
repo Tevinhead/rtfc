@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StudentList } from '../components/students/StudentList';
 import { StudentForm } from '../components/students/StudentForm';
-import { Title, Alert, Button, Modal, Group, Text, Stack } from '@mantine/core';
+import { Title, Alert, Button, Modal, Group, Text, Stack, Card, Center, Box } from '@mantine/core';
 import { useStudentStore } from '../stores';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import { Student } from '../types';
@@ -89,25 +89,34 @@ export function StudentsPage() {
   }
 
   return (
-    <>
-      <Group justify="space-between" mb="lg">
-        <Title order={2}>Students</Title>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={handleAddClick}
-        >
-          Add Student
-        </Button>
-      </Group>
+    <Box>
+      <Center py="xl">
+        <Card w="90%" maw={1200}>
+          <Stack gap="lg">
+            <Group justify="space-between">
+              <Title order={2}>Students</Title>
+              <Button
+                leftSection={<IconPlus size={16} />}
+                onClick={handleAddClick}
+                color="teal"
+              >
+                Add Student
+              </Button>
+            </Group>
 
-      <StudentList 
-        students={students} 
-        onEdit={handleEdit}
-        onDelete={handleDeleteClick}
-        onReset={handleReset}
-        loading={loading}
-        error={error}
-      />
+            <Card>
+              <StudentList 
+                students={students} 
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                onReset={handleReset}
+                loading={loading}
+                error={error}
+              />
+            </Card>
+          </Stack>
+        </Card>
+      </Center>
 
       <Modal
         opened={formModalOpen}
@@ -129,11 +138,11 @@ export function StudentsPage() {
         <Stack>
           <Text>Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.</Text>
           <Group justify="flex-end">
-            <Button variant="light" onClick={handleDeleteCancel}>Cancel</Button>
-            <Button color="red" onClick={handleDeleteConfirm}>Delete</Button>
+            <Button variant="light" color="teal" onClick={handleDeleteCancel}>Cancel</Button>
+            <Button color="red" variant="filled" onClick={handleDeleteConfirm}>Delete</Button>
           </Group>
         </Stack>
       </Modal>
-    </>
+    </Box>
   );
 }

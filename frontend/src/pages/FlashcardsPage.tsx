@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Title, Alert, Stack, Tabs } from '@mantine/core';
+import { Title, Alert, Stack, Tabs, Card, Center, Box } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useFlashcardStore } from '../stores/flashcardStore';
 import { usePackStore } from '../stores/packStore';
@@ -35,24 +35,30 @@ export const FlashcardsPage = React.memo(function FlashcardsPage() {
   }
 
   return (
-    <>
-      <Title order={2} mb="lg">Flashcards</Title>
-      <Stack gap="md">
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tabs.List>
-            <Tabs.Tab value="packs">Packs</Tabs.Tab>
-            <Tabs.Tab value="cards">All Cards</Tabs.Tab>
-          </Tabs.List>
+    <Box>
+      <Center py="xl">
+        <Card w="90%" maw={1200}>
+          <Stack gap="lg">
+            <Title order={2}>Flashcards</Title>
+            <Card>
+              <Tabs value={activeTab} onChange={handleTabChange} color="teal">
+                <Tabs.List>
+                  <Tabs.Tab value="packs">Packs</Tabs.Tab>
+                  <Tabs.Tab value="cards">All Cards</Tabs.Tab>
+                </Tabs.List>
 
-          <Tabs.Panel value="packs">
-            {tabPanels.packs}
-          </Tabs.Panel>
+                <Tabs.Panel value="packs" pt="md">
+                  {tabPanels.packs}
+                </Tabs.Panel>
 
-          <Tabs.Panel value="cards">
-            {tabPanels.cards}
-          </Tabs.Panel>
-        </Tabs>
-      </Stack>
-    </>
+                <Tabs.Panel value="cards" pt="md">
+                  {tabPanels.cards}
+                </Tabs.Panel>
+              </Tabs>
+            </Card>
+          </Stack>
+        </Card>
+      </Center>
+    </Box>
   );
 });

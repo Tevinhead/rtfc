@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Center, LoadingOverlay } from '@mantine/core';
+import { Box, Center, Card, Title, Stack, LoadingOverlay } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useStudentStore } from '../stores';
@@ -100,27 +100,32 @@ export function ArenaPage() {
   };
 
   return (
-    <Box pos="relative">
+    <Box pos="relative" style={{ minHeight: '70vh' }}>
       <LoadingOverlay 
         visible={isLoading} 
         zIndex={1000}
         overlayProps={{ blur: 2 }}
       />
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={arenaStep}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{
-            type: "spring",
-            stiffness: 100,
-            damping: 15
-          }}
-        >
-          {renderContent()}
-        </motion.div>
-      </AnimatePresence>
+      <Center py="xl">
+        <Card w="90%" maw={1200}>
+          <Stack>
+            <Title order={2} ta="center" mt="sm">
+              Flashcard Arena
+            </Title>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={arenaStep}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ type: "spring", stiffness: 100, damping: 15 }}
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
+          </Stack>
+        </Card>
+      </Center>
     </Box>
   );
 }
