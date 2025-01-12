@@ -4009,9 +4009,27 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
 File: frontend\src\components\arena\ArenaSetup.tsx
 ================================================================================
 
-import React from 'react';
-import { Stack, Select, NumberInput, MultiSelect, Button, Title } from '@mantine/core';
+import React, { useCallback, useState, useEffect } from 'react';
+import {
+  Stack,
+  Title,
+  Select,
+  NumberInput,
+  Button,
+  Text,
+  SimpleGrid,
+  Card,
+  Avatar,
+  Group,
+  Badge,
+  Box,
+  Alert,
+  MantineTheme,
+} from '@mantine/core';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useArenaSetup } from '../../hooks/useArenaSetup';
+import { useStudentStore } from '../../stores';
+import { Student } from '../../types';
 
 interface ArenaSetupProps {
   onStart: (packId: string, playerIds: string[], rounds: number) => void;
@@ -4022,25 +4040,51 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
   const {
     selectedPackId,
     numRounds,
-    selectedPlayerIds,
+    selectedPlayerIds: oldSelectedIds,
     validationErrors,
-    studentSelectData,
     packSelectData,
     handlePackChange,
     handleRoundsChange,
-    handlePlayersChange,
     validateSetup,
-    getSetupData
+    getSetupData,
+    resetSetup,
   } = useArenaSetup();
 
+  const { students, fetchStudents } = useStudentStore();
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
+
+  const toggleStudent = useCallback(
+    (id: string) => {
+      setSelectedPlayerIds((prev) =>
+        prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+      );
+    },
+    [setSelectedPlayerIds]
+  );
+
   const handleStartClick = () => {
-    if (!validateSetup()) return;
-    const { selectedPackId, selectedPlayerIds, numRounds } = getSetupData();
-    onStart(selectedPackId, selectedPlayerIds, numRounds);
+    const data = getSetupData();
+    if (!data.selectedPackId) {
+      return;
+    }
+    if (selectedPlayerIds.length < 2) {
+      window.alert('Please select at least 2 players for the Arena.');
+      return;
+    }
+    if (numRounds < 1 || numRounds > 20) {
+      window.alert('Rounds must be between 1 and 20');
+      return;
+    }
+
+    onStart(data.selectedPackId, selectedPlayerIds, numRounds);
   };
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" data-testid="arena-setup">
       <Title order={2}>Flashcard Battle Setup</Title>
 
       <Select
@@ -4063,23 +4107,78 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
         required
       />
 
-      <MultiSelect
-        label="Select Players"
-        data={studentSelectData}
-        value={selectedPlayerIds}
-        onChange={handlePlayersChange}
-        searchable
-        clearable
-        placeholder="Select players"
-        error={validationErrors.players}
-        required
-      />
+      <Box>
+        <Text fw={500} mb="xs">
+          Select Players (at least 2)
+        </Text>
+        {students.length === 0 ? (
+          <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+            No students found. Please add some students first.
+          </Alert>
+        ) : (
+          <SimpleGrid
+            cols={3}
+            style={{
+              [`@media (max-width: 1000px)`]: {
+                gridTemplateColumns: 'repeat(2, 1fr)',
+              },
+              [`@media (max-width: 600px)`]: {
+                gridTemplateColumns: 'repeat(1, 1fr)',
+              },
+            }}
+          >
+            {students.map((student: Student) => {
+              const isSelected = selectedPlayerIds.includes(student.id);
+              return (
+                <Card
+                  key={student.id}
+                  onClick={() => toggleStudent(student.id)}
+                  shadow={isSelected ? 'md' : 'sm'}
+                  withBorder
+                  styles={(theme: MantineTheme) => ({
+                    root: {
+                      cursor: 'pointer',
+                      borderColor: isSelected ? theme.colors.teal[6] : undefined,
+                      backgroundColor: isSelected
+                        ? `${theme.colors.teal[0]}80`  // 50% opacity
+                        : 'white',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: isSelected ? 'md' : 'lg',
+                      },
+                    }
+                  })}
+                >
+                  <Group>
+                    <Avatar
+                      radius="xl"
+                      size={50}
+                      src={student.avatar_url}
+                      alt={student.name}
+                    >
+                      {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
+                    </Avatar>
+                    <Stack gap={4}>
+                      <Text fw={600}>{student.name}</Text>
+                      <Badge color="teal" variant="light">
+                        ELO: {student.elo_rating}
+                      </Badge>
+                    </Stack>
+                  </Group>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        )}
+      </Box>
 
       <Button 
-        onClick={handleStartClick} 
-        variant="filled" 
-        color="blue" 
+        onClick={handleStartClick}
+        variant="filled"
+        color="teal"
         loading={isLoading}
+        data-testid="start-arena-button"
       >
         Start Arena
       </Button>
@@ -8513,7 +8612,7 @@ File: frontend\src\pages\ArenaPage.tsx
 ================================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Box, Center, LoadingOverlay } from '@mantine/core';
+import { Box, Center, Card, Title, Stack, LoadingOverlay } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useStudentStore } from '../stores';
@@ -8614,27 +8713,32 @@ export function ArenaPage() {
   };
 
   return (
-    <Box pos="relative">
+    <Box pos="relative" style={{ minHeight: '70vh' }}>
       <LoadingOverlay 
         visible={isLoading} 
         zIndex={1000}
         overlayProps={{ blur: 2 }}
       />
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={arenaStep}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{
-            type: "spring",
-            stiffness: 100,
-            damping: 15
-          }}
-        >
-          {renderContent()}
-        </motion.div>
-      </AnimatePresence>
+      <Center py="xl">
+        <Card w="90%" maw={1200}>
+          <Stack>
+            <Title order={2} ta="center" mt="sm">
+              Flashcard Arena
+            </Title>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={arenaStep}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ type: "spring", stiffness: 100, damping: 15 }}
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
+          </Stack>
+        </Card>
+      </Center>
     </Box>
   );
 }
@@ -8646,7 +8750,7 @@ File: frontend\src\pages\FlashcardsPage.tsx
 ================================================================================
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { Title, Alert, Stack, Tabs } from '@mantine/core';
+import { Title, Alert, Stack, Tabs, Card, Center, Box } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useFlashcardStore } from '../stores/flashcardStore';
 import { usePackStore } from '../stores/packStore';
@@ -8682,25 +8786,31 @@ export const FlashcardsPage = React.memo(function FlashcardsPage() {
   }
 
   return (
-    <>
-      <Title order={2} mb="lg">Flashcards</Title>
-      <Stack gap="md">
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tabs.List>
-            <Tabs.Tab value="packs">Packs</Tabs.Tab>
-            <Tabs.Tab value="cards">All Cards</Tabs.Tab>
-          </Tabs.List>
+    <Box>
+      <Center py="xl">
+        <Card w="90%" maw={1200}>
+          <Stack gap="lg">
+            <Title order={2}>Flashcards</Title>
+            <Card>
+              <Tabs value={activeTab} onChange={handleTabChange} color="teal">
+                <Tabs.List>
+                  <Tabs.Tab value="packs">Packs</Tabs.Tab>
+                  <Tabs.Tab value="cards">All Cards</Tabs.Tab>
+                </Tabs.List>
 
-          <Tabs.Panel value="packs">
-            {tabPanels.packs}
-          </Tabs.Panel>
+                <Tabs.Panel value="packs" pt="md">
+                  {tabPanels.packs}
+                </Tabs.Panel>
 
-          <Tabs.Panel value="cards">
-            {tabPanels.cards}
-          </Tabs.Panel>
-        </Tabs>
-      </Stack>
-    </>
+                <Tabs.Panel value="cards" pt="md">
+                  {tabPanels.cards}
+                </Tabs.Panel>
+              </Tabs>
+            </Card>
+          </Stack>
+        </Card>
+      </Center>
+    </Box>
   );
 });
 
@@ -8713,7 +8823,7 @@ File: frontend\src\pages\StudentsPage.tsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StudentList } from '../components/students/StudentList';
 import { StudentForm } from '../components/students/StudentForm';
-import { Title, Alert, Button, Modal, Group, Text, Stack } from '@mantine/core';
+import { Title, Alert, Button, Modal, Group, Text, Stack, Card, Center, Box } from '@mantine/core';
 import { useStudentStore } from '../stores';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import { Student } from '../types';
@@ -8801,25 +8911,34 @@ export function StudentsPage() {
   }
 
   return (
-    <>
-      <Group justify="space-between" mb="lg">
-        <Title order={2}>Students</Title>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={handleAddClick}
-        >
-          Add Student
-        </Button>
-      </Group>
+    <Box>
+      <Center py="xl">
+        <Card w="90%" maw={1200}>
+          <Stack gap="lg">
+            <Group justify="space-between">
+              <Title order={2}>Students</Title>
+              <Button
+                leftSection={<IconPlus size={16} />}
+                onClick={handleAddClick}
+                color="teal"
+              >
+                Add Student
+              </Button>
+            </Group>
 
-      <StudentList 
-        students={students} 
-        onEdit={handleEdit}
-        onDelete={handleDeleteClick}
-        onReset={handleReset}
-        loading={loading}
-        error={error}
-      />
+            <Card>
+              <StudentList 
+                students={students} 
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                onReset={handleReset}
+                loading={loading}
+                error={error}
+              />
+            </Card>
+          </Stack>
+        </Card>
+      </Center>
 
       <Modal
         opened={formModalOpen}
@@ -8841,12 +8960,12 @@ export function StudentsPage() {
         <Stack>
           <Text>Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.</Text>
           <Group justify="flex-end">
-            <Button variant="light" onClick={handleDeleteCancel}>Cancel</Button>
-            <Button color="red" onClick={handleDeleteConfirm}>Delete</Button>
+            <Button variant="light" color="teal" onClick={handleDeleteCancel}>Cancel</Button>
+            <Button color="red" variant="filled" onClick={handleDeleteConfirm}>Delete</Button>
           </Group>
         </Stack>
       </Modal>
-    </>
+    </Box>
   );
 }
 
@@ -10871,52 +10990,58 @@ export const useStudentStore = create<StudentStoreState>(createStore);
 File: frontend\src\theme\index.ts
 ================================================================================
 
-import { createTheme } from '@mantine/core';
+import { createTheme, MantineTheme } from '@mantine/core';
 
 export const theme = createTheme({
-  primaryColor: 'blue',
+  primaryColor: 'teal',
+
   colors: {
-    // Custom color palette for the app
-    blue: [
-      '#E6F7FF', // 0
-      '#BAE7FF', // 1
-      '#91D5FF', // 2
-      '#69C0FF', // 3
-      '#40A9FF', // 4
-      '#1890FF', // 5 - Primary
-      '#096DD9', // 6
-      '#0050B3', // 7
-      '#003A8C', // 8
-      '#002766', // 9
+    teal: [
+      '#E6FCF5',
+      '#C3FAE8',
+      '#96F2D7',
+      '#63E6BE',
+      '#38D9A9',
+      '#20C997', // primary teal
+      '#12B886',
+      '#0CA678',
+      '#099268',
+      '#087F5B',
     ],
   },
+
   fontFamily: 'Inter, sans-serif',
   headings: {
     fontFamily: 'Inter, sans-serif',
     sizes: {
-      h1: { fontSize: '2.5rem' },
-      h2: { fontSize: '2rem' },
-      h3: { fontSize: '1.75rem' },
-      h4: { fontSize: '1.5rem' },
-      h5: { fontSize: '1.25rem' },
-      h6: { fontSize: '1rem' },
+      h1: { fontSize: '2.25rem', fontWeight: '800' },
+      h2: { fontSize: '1.75rem', fontWeight: '700' },
+      h3: { fontSize: '1.5rem', fontWeight: '600' },
     },
   },
+
+  defaultRadius: 'md',
+
   components: {
     Button: {
       defaultProps: {
         size: 'md',
         radius: 'md',
       },
+      styles: (theme: MantineTheme) => ({
+        root: {
+          fontWeight: 600,
+        },
+      }),
     },
     Card: {
       defaultProps: {
+        p: 'lg',
+        shadow: 'sm',
         radius: 'md',
-        padding: 'lg',
       },
     },
   },
-  defaultRadius: 'md',
   // Custom theme properties for the battle arena
   other: {
     battleArena: {

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Stack, Box } from '@mantine/core';
 import { ErrorAlert } from '../shared/ErrorAlert';
 import { ErrorBoundary } from '../shared/ErrorBoundary';
@@ -7,6 +7,7 @@ import { VersusScreen } from './VersusScreen';
 import { ArenaResultScreen } from './ArenaResultScreen';
 import { ArenaStep } from '../../types/arena';
 import type { Student, Flashcard } from '../../types';
+import { useSound } from '../../hooks/useSound';
 
 interface ArenaBattleProps {
   step: ArenaStep;
@@ -40,7 +41,48 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   onReset,
   isLoading,
 }) => {
+  // Destructure the sound functions
+  const {
+    playBattleSound,
+    stopBattleSound,
+    playVsSound,
+    playResultSound,
+  } = useSound();
+
   const canPickWinner = step !== ArenaStep.VERSUS && !isLoading;
+
+  /**
+   * Manage sounds based on arena step changes
+   */
+  useEffect(() => {
+    switch (step) {
+      case ArenaStep.VERSUS:
+        // Stop any leftover battle sound
+        stopBattleSound();
+        // Play the vs screen sound once
+        playVsSound();
+        break;
+      case ArenaStep.BATTLE:
+        // Start the looping battle sound
+        playBattleSound();
+        break;
+      case ArenaStep.FINAL_RESULT:
+        // Stop battle sound if it's still playing
+        stopBattleSound();
+        // Play the result screen sound once
+        playResultSound();
+        break;
+      default:
+        // In other steps (SETUP, ROUND_RESULT, etc.), no battle sound is needed
+        stopBattleSound();
+        break;
+    }
+    // Cleanup: if we unmount while battle-sound might be playing
+    return () => {
+      stopBattleSound();
+    };
+  }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
+
 
   const handleVersusAnimationDone = useCallback(() => {
     onVersusReady();
