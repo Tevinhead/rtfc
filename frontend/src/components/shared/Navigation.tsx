@@ -71,6 +71,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
     { label: 'Students', icon: '👥', path: '/students' },
     { label: 'Flashcards', icon: '🃏', path: '/flashcards' },
     { label: 'Battle Arena', icon: '⚔️', path: '/arena' },
+    { label: 'Leaderboard', icon: '🏆', path: '/leaderboard' },
   ], []);
 
   return (
