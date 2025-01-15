@@ -101,9 +101,11 @@ export function createEntityStore<T>(
       ? async (data: Partial<T>) => {
           set({ loading: true, error: null });
           try {
-            const newItem = await api.create!(data);
+            const createdItem = await api.create!(data);
+            // Fetch all items to ensure we have the latest state
+            const allItems = await api.getAll();
             set({
-              items: [...get().items, newItem],
+              items: allItems,
               loading: false,
               error: null,
             });
@@ -123,6 +125,7 @@ export function createEntityStore<T>(
           set({ loading: true, error: null });
           try {
             const updatedItem = await api.update!(id, data);
+            // Set local state first for immediate feedback
             set((state) => ({
               items: state.items.map((i: any) => {
                 if ((i.id || i._id) === id) {
@@ -133,6 +136,8 @@ export function createEntityStore<T>(
               loading: false,
               error: null,
             }));
+            // Re-fetch from server to ensure we have the latest state
+            await get().fetchAll();
           } catch (err) {
             console.error(`Failed to update ${entityName}:`, err);
             set({
@@ -149,11 +154,14 @@ export function createEntityStore<T>(
           set({ loading: true, error: null });
           try {
             await api.delete!(id);
+            // Set local state first for immediate feedback
             set((state) => ({
               items: state.items.filter((i: any) => (i.id || i._id) !== id),
               loading: false,
               error: null,
             }));
+            // Re-fetch from server to ensure we have the latest state
+            await get().fetchAll();
           } catch (err) {
             console.error(`Failed to delete ${entityName}:`, err);
             set({

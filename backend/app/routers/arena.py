@@ -60,6 +60,14 @@ async def create_arena_session(
     await db.commit()
     await db.refresh(arena)
 
+    # Initialize match schedule
+    await arena_match_service.initialize_arena_matches(
+        db,
+        arena.id,
+        arena.num_rounds,
+        arena.participants
+    )
+
     # Construct proper response with student stats
     participants_list = []
     for participant in arena.participants:

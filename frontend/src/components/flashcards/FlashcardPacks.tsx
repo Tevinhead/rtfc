@@ -33,21 +33,35 @@ export function FlashcardPacks() {
 
   // Memoize handlers
   const handlePackSubmit = useCallback(async (name: string) => {
-    if (selectedPack) {
-      await updatePack(selectedPack.id, { name });
-    } else {
-      await addPack({ name });
+    try {
+      if (selectedPack) {
+        await updatePack(selectedPack.id, { name });
+      } else {
+        await addPack({ name });
+      }
+      // Always fetch all packs after any operation
+      await fetchPacks();
+      setPackFormOpen(false);
+      setSelectedPack(null);
+    } catch (err) {
+      console.error('Failed to submit pack:', err);
     }
-    setPackFormOpen(false);
-    setSelectedPack(null);
-  }, [selectedPack, updatePack, addPack]);
+  }, [selectedPack, updatePack, addPack, fetchPacks]);
 
   const handleDeletePack = useCallback(async () => {
     if (!selectedPack) return;
-    await deletePack(selectedPack.id);
-    setDeleteModalOpen(false);
-    setSelectedPack(null);
-  }, [selectedPack, deletePack]);
+    try {
+      await deletePack(selectedPack.id);
+      await Promise.all([
+        fetchPacks(),      // Refresh packs list
+        fetchFlashcards()  // Refresh flashcards
+      ]);
+      setDeleteModalOpen(false);
+      setSelectedPack(null);
+    } catch (err) {
+      console.error('Failed to delete pack:', err);
+    }
+  }, [selectedPack, deletePack, fetchPacks, fetchFlashcards]);
 
   const openEditModal = useCallback((pack: FlashcardPack) => {
     setSelectedPack(pack);

@@ -32,43 +32,20 @@ const createCustomSet = (baseSet: SetState): SetState => (partial) => {
 const createStore = (baseSet: any, get: any, _store: any): PackStoreState => {
   const set = createCustomSet(baseSet as SetState);
   
-  type EntityStateWrapper = <T>(
-    entityStore: (
-      set: any,
-      get: () => EntityState<T>,
-      store: any
-    ) => EntityState<T>
-  ) => (set: any, get: any, store: any) => EntityState<T>;
-
-  const createEntityStateWrapper: EntityStateWrapper = <T>(
-    entityStore: (
-      set: any,
-      get: () => EntityState<T>,
-      store: any
-    ) => EntityState<T>
-  ) => (set, get, store) => {
-    const wrappedGet = () => ({
-      items: [],
-      loading: false,
-      error: null,
-      fetchAll: async () => {},
-      ...get()
-    }) as EntityState<T>;
-    
-    return entityStore(set, wrappedGet, store);
-  };
-
-  const packStore = createEntityStateWrapper<FlashcardPack>(
-    createEntityStore<FlashcardPack>('packs', flashcardPackEntityApi)
-  )(
-    (partial: EntityState<FlashcardPack> | Partial<EntityState<FlashcardPack>>) => 
+  const entityStore = createEntityStore<FlashcardPack>('packs', flashcardPackEntityApi)(
+    (partial: EntityState<FlashcardPack> | Partial<EntityState<FlashcardPack>>) =>
       set((state) => ({
         ...state,
         loading: 'loading' in partial ? partial.loading : state.loading,
         error: 'error' in partial ? partial.error : state.error,
         packs: 'items' in partial ? partial.items : state.packs
       })),
-    get,
+    () => ({
+      items: get().packs,
+      loading: get().loading,
+      error: get().error,
+      fetchAll: get().fetchPacks,
+    }),
     _store
   );
 
@@ -79,10 +56,10 @@ const createStore = (baseSet: any, get: any, _store: any): PackStoreState => {
     error: null,
 
     // Pack operations
-    fetchPacks: packStore.fetchAll,
-    addPack: packStore.createItem!,
-    updatePack: packStore.updateItem!,
-    deletePack: packStore.deleteItem!
+    fetchPacks: entityStore.fetchAll,
+    addPack: entityStore.createItem!,
+    updatePack: entityStore.updateItem!,
+    deletePack: entityStore.deleteItem!
   };
 };
 
