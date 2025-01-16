@@ -14,7 +14,7 @@ try:
     
     # Connect and execute update
     with engine.connect() as connection:
-        connection.execute(text("UPDATE alembic_version SET version_num = '20240110_add_arena_battles'"))
+        connection.execute(text("UPDATE alembic_version SET version_num = '20250111_add_avatar_url_to_students'"))
         connection.commit()
     
     print("Successfully updated alembic_version table")

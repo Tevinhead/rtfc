@@ -36,10 +36,12 @@ class ArenaStatsService:
             if match.status == MatchStatus.COMPLETED:
                 elo_change += (match_participant.elo_after or 0) - match_participant.elo_before
                 # Count match-level wins/losses
-                if match.winner_ids and match_participant.student_id in match.winner_ids:
-                    wins += 1
-                else:
-                    losses += 1
+                # Only count wins/losses if there was a winner (not UNKNOWN)
+                if match.winner_ids:
+                    if match_participant.student_id in match.winner_ids:
+                        wins += 1
+                    else:
+                        losses += 1
 
         return StudentStatsResponse(
             student_id=student.id,

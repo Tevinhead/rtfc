@@ -17,7 +17,6 @@ class ArenaMatchService:
         self.elo_service = EloService()
         self.matchmaking_service = MatchmakingService(
             k_factor=32,
-            max_matches_per_round=1,
             elo_tolerance=300
         )
 
@@ -137,6 +136,12 @@ class ArenaMatchService:
         participants_with_students: List[Tuple[MatchParticipant, Student]]
     ) -> None:
         """Set the winner of a match and update ELO ratings"""
+        # If no winners (UNKNOWN result), just mark as completed without affecting stats
+        if not winner_ids:
+            match.status = MatchStatus.COMPLETED
+            match.winner_ids = []
+            return
+
         # Convert winner IDs to UUID objects and store on match
         match.winner_ids = [uuid.UUID(str(winner_id)) for winner_id in winner_ids]
 

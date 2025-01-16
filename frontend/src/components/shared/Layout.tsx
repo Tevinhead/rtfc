@@ -9,10 +9,15 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   return (
     <Navigation>
-      <Container size="xl" py="xl">
-        <Paper shadow="xs" p="md" radius="md">
-          {children}
-        </Paper>
+      <Container
+        size="xl"
+        p={0}
+        style={{
+          background: 'linear-gradient(165deg, #1A1B1E 0%, #13151A 100%)',
+          minHeight: '100vh'
+        }}
+      >
+        {children}
       </Container>
     </Navigation>
   );

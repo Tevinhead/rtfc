@@ -100,16 +100,61 @@ export function ArenaPage() {
   };
 
   return (
-    <Box pos="relative" style={{ minHeight: '70vh' }}>
+    <Box
+      pos="relative"
+      style={{
+        minHeight: '70vh',
+        background: 'linear-gradient(165deg, #1A1B1E 0%, #13151A 100%)',
+        padding: '2rem'
+      }}
+    >
       <LoadingOverlay 
         visible={isLoading} 
         zIndex={1000}
         overlayProps={{ blur: 2 }}
       />
       <Center py="xl">
-        <Card w="90%" maw={1200}>
+        <Card
+          w="90%"
+          maw={1200}
+          styles={(theme) => ({
+            root: {
+              background: `linear-gradient(165deg, ${theme.colors.dark[7]} 0%, ${theme.colors.dark[9]} 100%)`,
+              border: `1px solid rgba(149, 97, 255, 0.2)`,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'radial-gradient(circle at top right, rgba(120, 100, 255, 0.1), transparent 70%)',
+                pointerEvents: 'none'
+              }
+            }
+          })}
+        >
           <Stack>
-            <Title order={2} ta="center" mt="sm">
+            <Title
+              order={2}
+              ta="center"
+              mt="sm"
+              styles={(theme) => ({
+                root: {
+                  fontSize: '2.5rem',
+                  fontWeight: 900,
+                  letterSpacing: '2px',
+                  textTransform: 'uppercase',
+                  textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                  background: `linear-gradient(45deg, ${theme.colors.violet[4]}, ${theme.colors.indigo[4]})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }
+              })}
+            >
               Flashcard Arena
             </Title>
             <AnimatePresence mode="wait">

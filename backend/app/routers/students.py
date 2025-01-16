@@ -25,7 +25,7 @@ class MatchHistoryItem(BaseModel):
     old_elo: float
     new_elo: float
     elo_change: float
-    result: Literal["win", "loss", "unknown"]
+    result: Literal["win", "loss"]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -251,13 +251,12 @@ async def get_student_history(
         new_elo = user_participant.elo_after or old_elo
         elo_change = new_elo - old_elo
 
-        # Figure out if user is among the winners
-        if not match.winner_ids or len(match.winner_ids) == 0:
-            result_str = "unknown"
-        elif user_participant.student_id in match.winner_ids:
-            result_str = "win"
-        else:
-            result_str = "loss"
+        # Only show completed matches with winners
+        if match.status != MatchStatus.COMPLETED or not match.winner_ids or len(match.winner_ids) == 0:
+            continue
+            
+        # Determine win/loss
+        result_str = "win" if user_participant.student_id in match.winner_ids else "loss"
 
         # For "opponent_name", pick the first opponent if any
         opponent_name = "Unknown"

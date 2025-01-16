@@ -7,7 +7,7 @@ import { LeaderboardPage, StudentsPage, FlashcardsPage, ArenaPage } from './page
 
 function App() {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={theme} defaultColorScheme="dark">
       <BrowserRouter>
         <Layout>
           <Routes>
