@@ -3805,16 +3805,14 @@ root.render(<App />);
 File: frontend\src\components\arena\ArenaBattle.tsx
 ================================================================================
 
-import React, { useCallback, useEffect } from 'react';
-import { Stack, Box } from '@mantine/core';
-import { ErrorAlert } from '../shared/ErrorAlert';
-import { ErrorBoundary } from '../shared/ErrorBoundary';
-import { ArenaBattleCard } from './ArenaBattleCard';
-import { VersusScreen } from './VersusScreen';
-import { ArenaResultScreen } from './ArenaResultScreen';
+import React, { useCallback } from 'react';
+import { Box } from '@mantine/core';
 import { ArenaStep } from '../../types/arena';
 import type { Student, Flashcard } from '../../types';
-import { useSound } from '../../hooks/useSound';
+import { useArenaBattleSounds } from '../../hooks/useArenaBattleSounds';
+import { VersusScreenWrapper } from './screens/VersusScreenWrapper';
+import { BattleScreen } from './screens/BattleScreen';
+import { FinalResultScreen } from './screens/FinalResultScreen';
 
 interface ArenaBattleProps {
   step: ArenaStep;
@@ -3848,143 +3846,45 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   onReset,
   isLoading,
 }) => {
-  // Destructure the sound functions
-  const {
-    playBattleSound,
-    stopBattleSound,
-    playVsSound,
-    playResultSound,
-  } = useSound();
+  // Handle sound effects based on arena step
+  useArenaBattleSounds(step);
 
   const canPickWinner = step !== ArenaStep.VERSUS && !isLoading;
-
-  /**
-   * Manage sounds based on arena step changes
-   */
-  useEffect(() => {
-    switch (step) {
-      case ArenaStep.VERSUS:
-        // Stop any leftover battle sound
-        stopBattleSound();
-        // Play the vs screen sound once
-        playVsSound();
-        break;
-      case ArenaStep.BATTLE:
-        // Start the looping battle sound
-        playBattleSound();
-        break;
-      case ArenaStep.FINAL_RESULT:
-        // Stop battle sound if it's still playing
-        stopBattleSound();
-        // Play the result screen sound once
-        playResultSound();
-        break;
-      default:
-        // In other steps (SETUP, ROUND_RESULT, etc.), no battle sound is needed
-        stopBattleSound();
-        break;
-    }
-    // Cleanup: if we unmount while battle-sound might be playing
-    return () => {
-      stopBattleSound();
-    };
-  }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
-
 
   const handleVersusAnimationDone = useCallback(() => {
     onVersusReady();
   }, [onVersusReady]);
 
-  const renderVersusScreen = () => {
-    if (step !== ArenaStep.VERSUS) return null;
-    if (!currentMatch) {
-      return <ErrorAlert error="Match data not found" onRetry={onReset} />;
-    }
-
-    const player1 = students.find(s => s.id === currentMatch.player1_id);
-    const player2 = students.find(s => s.id === currentMatch.player2_id);
-
-    if (!player1 || !player2) {
-      return <ErrorAlert error="Players not found" onRetry={onReset} />;
-    }
-
-    return (
-      <ErrorBoundary fallback={<ErrorAlert error="Failed to display versus screen" onRetry={onReset} />}>
-        <VersusScreen
-          participants={[
-            {
-              student_id: player1.id,
-              student: player1,
-              elo_before: currentMatch.player1_elo_before,
-            },
-            {
-              student_id: player2.id,
-              student: player2,
-              elo_before: currentMatch.player2_elo_before,
-            },
-          ]}
-          onAnimationComplete={handleVersusAnimationDone}
-        />
-      </ErrorBoundary>
-    );
-  };
-
-  const renderBattleScreen = () => {
-    if (step !== ArenaStep.BATTLE) return null;
-    if (!currentMatch || !currentFlashcard) {
-      return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
-    }
-
-    const player1 = students.find(s => s.id === currentMatch.player1_id);
-    const player2 = students.find(s => s.id === currentMatch.player2_id);
-
-    if (!player1 || !player2) {
-      return <ErrorAlert error="Players not found" onRetry={onReset} />;
-    }
-
-    return (
-      <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
-        <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
-          <ArenaBattleCard
-            flashcard={currentFlashcard}
-            player1={player1}
-            player2={player2}
-            roundsCompleted={arenaSession?.rounds_completed || 0}
-            totalRounds={arenaSession?.num_rounds || 0}
-            onSelectWinner={onSelectWinner}
-            player1ELO={currentMatch.player1_elo_before}
-            player2ELO={currentMatch.player2_elo_before}
-            isLoading={isLoading}
-            canPickWinner={canPickWinner}
-          />
-        </Stack>
-      </ErrorBoundary>
-    );
-  };
-
-  const renderFinalResult = () => {
-    if (step !== ArenaStep.FINAL_RESULT) return null;
-    if (!arenaSession) {
-      return <ErrorAlert error="Session data not found" onRetry={onReset} />;
-    }
-
-    return (
-      <ErrorBoundary fallback={<ErrorAlert error="Failed to display results" onRetry={onReset} />}>
-        <Stack gap="md">
-          <ArenaResultScreen
-            results={arenaSession.participants}
-            onFinish={onReset}
-          />
-        </Stack>
-      </ErrorBoundary>
-    );
-  };
-
   return (
     <Box data-testid="arena-battle" style={{ width: '100%', position: 'relative' }}>
-      {renderVersusScreen()}
-      {renderBattleScreen()}
-      {renderFinalResult()}
+      {step === ArenaStep.VERSUS && (
+        <VersusScreenWrapper
+          currentMatch={currentMatch}
+          students={students}
+          onAnimationComplete={handleVersusAnimationDone}
+          onReset={onReset}
+        />
+      )}
+      
+      {step === ArenaStep.BATTLE && (
+        <BattleScreen
+          currentMatch={currentMatch}
+          currentFlashcard={currentFlashcard}
+          students={students}
+          arenaSession={arenaSession}
+          onSelectWinner={onSelectWinner}
+          onReset={onReset}
+          isLoading={isLoading}
+          canPickWinner={canPickWinner}
+        />
+      )}
+      
+      {step === ArenaStep.FINAL_RESULT && (
+        <FinalResultScreen
+          arenaSession={arenaSession}
+          onReset={onReset}
+        />
+      )}
     </Box>
   );
 };
@@ -4314,27 +4214,17 @@ File: frontend\src\components\arena\ArenaSetup.tsx
 ================================================================================
 
 import React, { useCallback, useState, useEffect } from 'react';
-import {
-  Stack,
-  Select,
-  NumberInput,
-  Button,
-  Text,
-  SimpleGrid,
-  Card,
-  Avatar,
-  Group,
-  Badge,
-  Box,
-  Alert,
-  Paper,
-  MantineTheme,
-  useMantineTheme,
-} from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { Stack, Box, Paper } from '@mantine/core';
 import { useArenaSetup } from '../../hooks/useArenaSetup';
 import { useStudentStore } from '../../stores';
-import { Student } from '../../types';
+import { containerStyles, paperStyles } from './setup/styles';
+import {
+  ArenaHeader,
+  ArenaPackSelect,
+  ArenaRoundsInput,
+  ArenaPlayerSelect,
+  ArenaStartButton
+} from './setup';
 
 interface ArenaSetupProps {
   onStart: (packId: string, playerIds: string[], rounds: number) => void;
@@ -4342,7 +4232,6 @@ interface ArenaSetupProps {
 }
 
 export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = false }) => {
-  const theme = useMantineTheme();
   const {
     selectedPackId,
     numRounds,
@@ -4391,16 +4280,7 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
       gap="xl"
       data-testid="arena-setup"
       p="xl"
-      styles={(theme: MantineTheme) => ({
-        root: {
-          borderRadius: theme.radius.xl,
-          background: `linear-gradient(165deg, ${theme.colors.dark[7]} 0%, ${theme.colors.dark[9]} 100%)`,
-          boxShadow: `0 8px 32px rgba(0, 0, 0, 0.2)`,
-          border: `1px solid ${theme.colors.dark[4]}`,
-          position: 'relative',
-          overflow: 'hidden'
-        }
-      })}
+      styles={containerStyles}
     >
       <Box
         style={{
@@ -4415,235 +4295,36 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
       />
 
       <Stack align="center" mb="xl">
-        <Box
-          style={{
-            position: 'relative',
-            width: 400,
-            height: 120
-          }}
-        >
-          <Box
-            style={{
-              position: 'absolute',
-              top: -20,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 120,
-              height: 120,
-              background: 'radial-gradient(circle, rgba(112, 72, 232, 0.3) 0%, transparent 70%)',
-              filter: 'blur(20px)',
-              zIndex: 0
-            }}
-          />
-          <Text
-            component="h1"
-            size="3rem"
-            fw={900}
-            variant="gradient"
-            gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
-            styles={(theme: MantineTheme) => ({
-              root: {
-                textAlign: 'center',
-                textTransform: 'uppercase',
-                letterSpacing: '2px',
-                textShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                position: 'relative',
-                zIndex: 1
-              }
-            })}
-          >
-            Flashcard Battle Setup
-          </Text>
-        </Box>
+        <ArenaHeader />
       </Stack>
 
-      <Paper
-        p="xl"
-        radius="md"
-        styles={(theme: MantineTheme) => ({
-          root: {
-            background: `linear-gradient(165deg, rgba(25, 26, 30, 0.8) 0%, rgba(15, 16, 20, 0.9) 100%)`,
-            backdropFilter: 'blur(16px)',
-            border: `1px solid rgba(149, 97, 255, 0.2)`,
-            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)`,
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'radial-gradient(circle at top right, rgba(120, 100, 255, 0.1), transparent 70%)',
-              pointerEvents: 'none'
-            }
-          }
-        })}
-      >
+      <Paper p="xl" radius="md" styles={paperStyles}>
         <Stack gap="xl">
-          <Select
-            label="Select a Flashcard Pack"
-            placeholder="Choose your battle deck"
-            data={packSelectData}
-            value={selectedPackId}
-            onChange={handlePackChange}
+          <ArenaPackSelect
+            packSelectData={packSelectData}
+            selectedPackId={selectedPackId}
+            onPackChange={handlePackChange}
             error={validationErrors.pack}
-            required
-            size="lg"
-            styles={(theme: MantineTheme) => ({
-              label: {
-                color: theme.white,
-                fontSize: theme.fontSizes.lg,
-                fontWeight: 600,
-                marginBottom: theme.spacing.xs
-              },
-              input: {
-                fontSize: theme.fontSizes.md,
-                background: theme.colors.dark[7],
-                border: `1px solid ${theme.colors.dark[4]}`,
-                color: theme.white,
-                '&:focus': {
-                  borderColor: theme.colors.violet[5]
-                }
-              },
-              item: {
-                '&[data-selected]': {
-                  '&, &:hover': {
-                    backgroundColor: theme.colors.violet[9],
-                    color: theme.white
-                  }
-                }
-              }
-            })}
           />
 
-          <NumberInput
-            label="Number of Rounds"
-            description="Choose how many rounds of battle (1-20)"
-            min={1}
-            max={20}
-            value={numRounds}
-            onChange={handleRoundsChange}
+          <ArenaRoundsInput
+            numRounds={numRounds}
+            onRoundsChange={handleRoundsChange}
             error={validationErrors.rounds}
-            required
-            size="lg"
-            styles={(theme: MantineTheme) => ({
-              label: {
-                color: theme.white,
-                fontSize: theme.fontSizes.lg,
-                fontWeight: 600,
-                marginBottom: theme.spacing.xs
-              },
-              input: {
-                fontSize: theme.fontSizes.md,
-                background: theme.colors.dark[7],
-                border: `1px solid ${theme.colors.dark[4]}`,
-                color: theme.white,
-                '&:focus': {
-                  borderColor: theme.colors.violet[5]
-                }
-              }
-            })}
           />
 
-          <Box mt="xl">
-            <Text
-              fw={700}
-              mb="md"
-              size="lg"
-              variant="gradient"
-              gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
-            >
-              Select Players (at least 2)
-            </Text>
-            {students.length === 0 ? (
-              <Alert icon={<IconAlertCircle size={16} />} color="yellow">
-                No students found. Please add some students first.
-              </Alert>
-            ) : (
-              <SimpleGrid
-                cols={{ base: 1, sm: 2, md: 3 }}
-                spacing={{ base: 'sm', sm: 'md', md: 'lg' }}
-                mt="lg"
-              >
-                {students.map((student: Student) => {
-                  const isSelected = selectedPlayerIds.includes(student.id);
-                  return (
-                    <Card
-                      key={student.id}
-                      onClick={() => toggleStudent(student.id)}
-                      shadow={isSelected ? 'lg' : 'md'}
-                      withBorder
-                      p="lg"
-                      style={{
-                        cursor: 'pointer',
-                        transform: isSelected ? 'translateY(-4px)' : 'none',
-                        transition: 'all 0.2s ease'
-                      }}
-                      styles={(theme: MantineTheme) => ({
-                        root: {
-                          backgroundColor: isSelected ? theme.colors.dark[6] : theme.colors.dark[7],
-                          borderColor: isSelected ? theme.colors.violet[5] : theme.colors.dark[4],
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: theme.shadows.lg
-                          }
-                        }
-                      })}
-                    >
-                      <Group>
-                        <Avatar
-                          radius="xl"
-                          size={50}
-                          src={student.avatar_url}
-                          alt={student.name}
-                        >
-                          {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
-                        </Avatar>
-                        <Stack gap="xs">
-                          <Text size="lg" fw={700} c="white">{student.name}</Text>
-                          <Badge
-                            size="lg"
-                            variant="gradient"
-                            gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
-                          >
-                            ELO: {student.elo_rating}
-                          </Badge>
-                        </Stack>
-                      </Group>
-                    </Card>
-                  );
-                })}
-              </SimpleGrid>
-            )}
-          </Box>
+          <ArenaPlayerSelect
+            students={students}
+            selectedPlayerIds={selectedPlayerIds}
+            onTogglePlayer={toggleStudent}
+          />
         </Stack>
       </Paper>
 
-      <Button
+      <ArenaStartButton
         onClick={handleStartClick}
-        variant="gradient"
-        gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
-        loading={isLoading}
-        size="xl"
-        fullWidth
-        mt="xl"
-        styles={(theme: MantineTheme) => ({
-          root: {
-            height: 56,
-            fontSize: theme.fontSizes.lg,
-            fontWeight: 700,
-            boxShadow: theme.shadows.md,
-            '&:hover': {
-              boxShadow: theme.shadows.lg
-            }
-          }
-        })}
-        data-testid="start-arena-button"
-      >
-        Start Arena Battle
-      </Button>
+        isLoading={isLoading}
+      />
     </Stack>
   );
 };
@@ -6078,6 +5759,529 @@ export const WinnerSelection: React.FC<WinnerSelectionProps> = ({
   );
 };
 
+
+
+================================================================================
+File: frontend\src\components\arena\screens\BattleScreen.tsx
+================================================================================
+
+import React from 'react';
+import { Stack } from '@mantine/core';
+import { ErrorAlert } from '../../shared/ErrorAlert';
+import { ErrorBoundary } from '../../shared/ErrorBoundary';
+import { ArenaBattleCard } from '../ArenaBattleCard';
+import { Student, Flashcard } from '../../../types';
+import { findMatchPlayers } from '../../../utils/playerUtils';
+
+interface BattleScreenProps {
+  currentMatch: {
+    player1_id: string;
+    player2_id: string;
+    player1_elo_before: number;
+    player2_elo_before: number;
+  } | null;
+  currentFlashcard: Flashcard | null;
+  students: Student[];
+  arenaSession: {
+    rounds_completed: number;
+    num_rounds: number;
+  } | null;
+  onSelectWinner: (winnerIds: string[]) => void;
+  onReset: () => void;
+  isLoading: boolean;
+  canPickWinner: boolean;
+}
+
+export const BattleScreen: React.FC<BattleScreenProps> = ({
+  currentMatch,
+  currentFlashcard,
+  students,
+  arenaSession,
+  onSelectWinner,
+  onReset,
+  isLoading,
+  canPickWinner,
+}) => {
+  if (!currentMatch || !currentFlashcard) {
+    return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
+  }
+
+  const playersResult = findMatchPlayers(
+    students,
+    currentMatch.player1_id,
+    currentMatch.player2_id
+  );
+
+  if (playersResult instanceof Error) {
+    return <ErrorAlert error={playersResult.message} onRetry={onReset} />;
+  }
+
+  const { player1, player2 } = playersResult;
+
+  return (
+    <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
+      <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
+        <ArenaBattleCard
+          flashcard={currentFlashcard}
+          player1={player1}
+          player2={player2}
+          roundsCompleted={arenaSession?.rounds_completed || 0}
+          totalRounds={arenaSession?.num_rounds || 0}
+          onSelectWinner={onSelectWinner}
+          player1ELO={currentMatch.player1_elo_before}
+          player2ELO={currentMatch.player2_elo_before}
+          isLoading={isLoading}
+          canPickWinner={canPickWinner}
+        />
+      </Stack>
+    </ErrorBoundary>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\screens\FinalResultScreen.tsx
+================================================================================
+
+import React from 'react';
+import { Stack } from '@mantine/core';
+import { ErrorAlert } from '../../shared/ErrorAlert';
+import { ErrorBoundary } from '../../shared/ErrorBoundary';
+import { ArenaResultScreen } from '../ArenaResultScreen';
+
+interface FinalResultScreenProps {
+  arenaSession: {
+    participants: any[];
+  } | null;
+  onReset: () => void;
+}
+
+export const FinalResultScreen: React.FC<FinalResultScreenProps> = ({
+  arenaSession,
+  onReset,
+}) => {
+  if (!arenaSession) {
+    return <ErrorAlert error="Session data not found" onRetry={onReset} />;
+  }
+
+  return (
+    <ErrorBoundary fallback={<ErrorAlert error="Failed to display results" onRetry={onReset} />}>
+      <Stack gap="md">
+        <ArenaResultScreen
+          results={arenaSession.participants}
+          onFinish={onReset}
+        />
+      </Stack>
+    </ErrorBoundary>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\screens\VersusScreenWrapper.tsx
+================================================================================
+
+import React from 'react';
+import { ErrorAlert } from '../../shared/ErrorAlert';
+import { ErrorBoundary } from '../../shared/ErrorBoundary';
+import { VersusScreen } from '../VersusScreen';
+import { Student } from '../../../types';
+import { findMatchPlayers, createParticipantData } from '../../../utils/playerUtils';
+
+interface VersusScreenWrapperProps {
+  currentMatch: {
+    player1_id: string;
+    player2_id: string;
+    player1_elo_before: number;
+    player2_elo_before: number;
+  } | null;
+  students: Student[];
+  onAnimationComplete: () => void;
+  onReset: () => void;
+}
+
+export const VersusScreenWrapper: React.FC<VersusScreenWrapperProps> = ({
+  currentMatch,
+  students,
+  onAnimationComplete,
+  onReset,
+}) => {
+  if (!currentMatch) {
+    return <ErrorAlert error="Match data not found" onRetry={onReset} />;
+  }
+
+  const playersResult = findMatchPlayers(
+    students,
+    currentMatch.player1_id,
+    currentMatch.player2_id
+  );
+
+  if (playersResult instanceof Error) {
+    return <ErrorAlert error={playersResult.message} onRetry={onReset} />;
+  }
+
+  const { player1, player2 } = playersResult;
+
+  return (
+    <ErrorBoundary fallback={<ErrorAlert error="Failed to display versus screen" onRetry={onReset} />}>
+      <VersusScreen
+        participants={[
+          createParticipantData(player1, currentMatch.player1_elo_before),
+          createParticipantData(player2, currentMatch.player2_elo_before),
+        ]}
+        onAnimationComplete={onAnimationComplete}
+      />
+    </ErrorBoundary>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\setup\ArenaHeader.tsx
+================================================================================
+
+import React from 'react';
+import { Box, Text, MantineTheme } from '@mantine/core';
+
+export const ArenaHeader: React.FC = () => {
+  return (
+    <Box
+      style={{
+        position: 'relative',
+        width: 400,
+        height: 120
+      }}
+    >
+      <Box
+        style={{
+          position: 'absolute',
+          top: -20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 120,
+          height: 120,
+          background: 'radial-gradient(circle, rgba(112, 72, 232, 0.3) 0%, transparent 70%)',
+          filter: 'blur(20px)',
+          zIndex: 0
+        }}
+      />
+      <Text
+        component="h1"
+        size="3rem"
+        fw={900}
+        variant="gradient"
+        gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
+        styles={(theme: MantineTheme) => ({
+          root: {
+            textAlign: 'center',
+            textTransform: 'uppercase',
+            letterSpacing: '2px',
+            textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+            position: 'relative',
+            zIndex: 1
+          }
+        })}
+      >
+        Flashcard Battle Setup
+      </Text>
+    </Box>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\setup\ArenaPackSelect.tsx
+================================================================================
+
+import React from 'react';
+import { Select } from '@mantine/core';
+import { inputStyles } from './styles';
+
+interface ArenaPackSelectProps {
+  packSelectData: { value: string; label: string }[];
+  selectedPackId: string;
+  onPackChange: (value: string | null) => void;
+  error?: string;
+}
+
+export const ArenaPackSelect: React.FC<ArenaPackSelectProps> = ({
+  packSelectData,
+  selectedPackId,
+  onPackChange,
+  error
+}) => {
+  return (
+    <Select
+      label="Select a Flashcard Pack"
+      placeholder="Choose your battle deck"
+      data={packSelectData}
+      value={selectedPackId}
+      onChange={onPackChange}
+      error={error}
+      required
+      size="lg"
+      styles={inputStyles}
+    />
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\setup\ArenaPlayerSelect.tsx
+================================================================================
+
+import React from 'react';
+import { SimpleGrid, Card, Group, Avatar, Stack, Text, Badge, Alert, Box } from '@mantine/core';
+import { IconAlertCircle } from '@tabler/icons-react';
+import { Student } from '../../../types';
+import { playerCardStyles } from './styles';
+
+interface ArenaPlayerSelectProps {
+  students: Student[];
+  selectedPlayerIds: string[];
+  onTogglePlayer: (id: string) => void;
+}
+
+export const ArenaPlayerSelect: React.FC<ArenaPlayerSelectProps> = ({
+  students,
+  selectedPlayerIds,
+  onTogglePlayer
+}) => {
+  return (
+    <Box mt="xl">
+      <Text
+        fw={700}
+        mb="md"
+        size="lg"
+        variant="gradient"
+        gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
+      >
+        Select Players (at least 2)
+      </Text>
+      {students.length === 0 ? (
+        <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+          No students found. Please add some students first.
+        </Alert>
+      ) : (
+        <SimpleGrid
+          cols={{ base: 1, sm: 2, md: 3 }}
+          spacing={{ base: 'sm', sm: 'md', md: 'lg' }}
+          mt="lg"
+        >
+          {students.map((student: Student) => {
+            const isSelected = selectedPlayerIds.includes(student.id);
+            return (
+              <Card
+                key={student.id}
+                onClick={() => onTogglePlayer(student.id)}
+                shadow={isSelected ? 'lg' : 'md'}
+                withBorder
+                p="lg"
+                style={{
+                  cursor: 'pointer',
+                  transform: isSelected ? 'translateY(-4px)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+                styles={(theme) => playerCardStyles(theme, isSelected)}
+              >
+                <Group>
+                  <Avatar
+                    radius="xl"
+                    size={50}
+                    src={student.avatar_url}
+                    alt={student.name}
+                  >
+                    {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
+                  </Avatar>
+                  <Stack gap="xs">
+                    <Text size="lg" fw={700} c="white">{student.name}</Text>
+                    <Badge
+                      size="lg"
+                      variant="gradient"
+                      gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
+                    >
+                      ELO: {student.elo_rating}
+                    </Badge>
+                  </Stack>
+                </Group>
+              </Card>
+            );
+          })}
+        </SimpleGrid>
+      )}
+    </Box>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\setup\ArenaRoundsInput.tsx
+================================================================================
+
+import React from 'react';
+import { NumberInput } from '@mantine/core';
+import { inputStyles } from './styles';
+
+interface ArenaRoundsInputProps {
+  numRounds: number;
+  onRoundsChange: (value: number | string) => void;
+  error?: string;
+}
+
+export const ArenaRoundsInput: React.FC<ArenaRoundsInputProps> = ({
+  numRounds,
+  onRoundsChange,
+  error
+}) => {
+  return (
+    <NumberInput
+      label="Number of Rounds"
+      description="Choose how many rounds of battle (1-20)"
+      min={1}
+      max={20}
+      value={numRounds}
+      onChange={onRoundsChange}
+      error={error}
+      required
+      size="lg"
+      styles={inputStyles}
+    />
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\setup\ArenaStartButton.tsx
+================================================================================
+
+import React from 'react';
+import { Button } from '@mantine/core';
+import { buttonStyles } from './styles';
+
+interface ArenaStartButtonProps {
+  onClick: () => void;
+  isLoading?: boolean;
+}
+
+export const ArenaStartButton: React.FC<ArenaStartButtonProps> = ({
+  onClick,
+  isLoading = false
+}) => {
+  return (
+    <Button
+      onClick={onClick}
+      variant="gradient"
+      gradient={{ from: 'violet', to: 'indigo', deg: 45 }}
+      loading={isLoading}
+      size="xl"
+      fullWidth
+      mt="xl"
+      styles={buttonStyles}
+      data-testid="start-arena-button"
+    >
+      Start Arena Battle
+    </Button>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\setup\index.ts
+================================================================================
+
+export * from './ArenaHeader';
+export * from './ArenaPackSelect';
+export * from './ArenaRoundsInput';
+export * from './ArenaPlayerSelect';
+export * from './ArenaStartButton';
+
+
+================================================================================
+File: frontend\src\components\arena\setup\styles.ts
+================================================================================
+
+import { MantineTheme } from '@mantine/core';
+
+export const containerStyles = (theme: MantineTheme) => ({
+  root: {
+    borderRadius: theme.radius.xl,
+    background: `linear-gradient(165deg, ${theme.colors.dark[7]} 0%, ${theme.colors.dark[9]} 100%)`,
+    boxShadow: `0 8px 32px rgba(0, 0, 0, 0.2)`,
+    border: `1px solid ${theme.colors.dark[4]}`,
+    position: 'relative' as const,
+    overflow: 'hidden'
+  }
+});
+
+export const paperStyles = (theme: MantineTheme) => ({
+  root: {
+    background: `linear-gradient(165deg, rgba(25, 26, 30, 0.8) 0%, rgba(15, 16, 20, 0.9) 100%)`,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid rgba(149, 97, 255, 0.2)`,
+    boxShadow: `0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)`,
+    position: 'relative' as const,
+    overflow: 'hidden',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'radial-gradient(circle at top right, rgba(120, 100, 255, 0.1), transparent 70%)',
+      pointerEvents: 'none'
+    }
+  }
+});
+
+export const inputStyles = (theme: MantineTheme) => ({
+  label: {
+    color: theme.white,
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 600,
+    marginBottom: theme.spacing.xs
+  },
+  input: {
+    fontSize: theme.fontSizes.md,
+    background: theme.colors.dark[7],
+    border: `1px solid ${theme.colors.dark[4]}`,
+    color: theme.white,
+    '&:focus': {
+      borderColor: theme.colors.violet[5]
+    }
+  },
+  item: {
+    '&[data-selected]': {
+      '&, &:hover': {
+        backgroundColor: theme.colors.violet[9],
+        color: theme.white
+      }
+    }
+  }
+});
+
+export const buttonStyles = (theme: MantineTheme) => ({
+  root: {
+    height: 56,
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 700,
+    boxShadow: theme.shadows.md,
+    '&:hover': {
+      boxShadow: theme.shadows.lg
+    }
+  }
+});
+
+export const playerCardStyles = (theme: MantineTheme, isSelected: boolean) => ({
+  root: {
+    backgroundColor: isSelected ? theme.colors.dark[6] : theme.colors.dark[7],
+    borderColor: isSelected ? theme.colors.violet[5] : theme.colors.dark[4],
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: theme.shadows.lg
+    }
+  }
+});
 
 
 ================================================================================
@@ -7539,8 +7743,8 @@ export function BulkOperationsModal({
   // Memoize handlers
   const handleDownloadTemplate = useCallback(async () => {
     try {
-      const response = await flashcardApi.getImportTemplate();
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = await flashcardApi.getImportTemplate();
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'flashcard_template.csv');
@@ -7556,8 +7760,8 @@ export function BulkOperationsModal({
     if (!selectedPack) return;
 
     try {
-      const response = await flashcardApi.exportPack(selectedPack);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = await flashcardApi.exportPack(selectedPack);
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `flashcards_pack_${selectedPack}.csv`);
@@ -8905,6 +9109,46 @@ export const useArenaBattle = () => {
   };
 };
 
+
+
+================================================================================
+File: frontend\src\hooks\useArenaBattleSounds.ts
+================================================================================
+
+import { useEffect } from 'react';
+import { ArenaStep } from '../types/arena';
+import { useSound } from './useSound';
+
+export const useArenaBattleSounds = (step: ArenaStep) => {
+  const {
+    playBattleSound,
+    stopBattleSound,
+    playVsSound,
+    playResultSound,
+  } = useSound();
+
+  useEffect(() => {
+    switch (step) {
+      case ArenaStep.VERSUS:
+        stopBattleSound();
+        playVsSound();
+        break;
+      case ArenaStep.BATTLE:
+        playBattleSound();
+        break;
+      case ArenaStep.FINAL_RESULT:
+        stopBattleSound();
+        playResultSound();
+        break;
+      default:
+        stopBattleSound();
+        break;
+    }
+    return () => {
+      stopBattleSound();
+    };
+  }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
+};
 
 
 ================================================================================
@@ -10766,125 +11010,258 @@ describe('ArenaPage', () => {
 File: frontend\src\services\api.ts
 ================================================================================
 
-import axios from 'axios';
-import type {
-  ApiResponse,
-  Student,
-  Flashcard,
-  FlashcardPack,
-  CreateStudentRequest,
-  CreateFlashcardRequest,
-  CreateFlashcardPackRequest,
-  BulkImportResult,
-  FlashcardStats,
-  FlashcardUsageStats,
-  FlashcardArenaStats,
-} from '../types';
+// Re-export all API modules
+export * from './apiUtils';
+export * from './studentApi';
+export * from './flashcardApi';
+export * from './flashcardPackApi';
+export * from './arenaApi';
+export * from './matchApi';
 
-const BASE_URL = 'http://localhost:8000/api';
+// Note: This file now serves as a central export point for all API modules.
+// Each domain has its own file with focused responsibilities and proper error handling.
+// The shared axios instance and error handling utilities are in apiUtils.ts.
 
-// Create axios instances
-const axiosInstance = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
 
-// Match API
-export const matchApi = {
-  createMultiplayer: (data: { player_ids: string[], num_rounds: number }) =>
-    axiosInstance.post('/matches/multiplayer', data),
-  
-  autoMatch: (data: { num_players: number, num_rounds: number, student_id: string }) =>
-    axiosInstance.post('/matches/auto-match', data),
-  
-  getById: (matchId: string) =>
-    axiosInstance.get(`/matches/${matchId}`),
-  
-  updateStatus: (matchId: string, status: string) =>
-    axiosInstance.patch(`/matches/${matchId}/status`, { status }),
+
+================================================================================
+File: frontend\src\services\apiUtils.ts
+================================================================================
+
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
+import { ApiResponse } from '../types';
+
+export const BASE_URL = 'http://localhost:8000/api';
+
+// Create base axios instance with common config
+export const createAxiosInstance = (): AxiosInstance => {
+  return axios.create({
+    baseURL: BASE_URL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 };
 
-// Round API
-export const roundApi = {
-  create: (data: { match_id: string, flashcard_id: string }) =>
-    axiosInstance.post('/matches/rounds', data),
+// Shared axios instance
+export const axiosInstance = createAxiosInstance();
+
+// Error handling
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+    public data?: any
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export const handleApiError = (error: unknown): never => {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<ApiResponse<any>>;
+    const status = axiosError.response?.status;
+    const message = axiosError.response?.data?.message || axiosError.message;
+    const data = axiosError.response?.data;
+    
+    throw new ApiError(message, status, data);
+  }
   
-  submitAnswer: (roundId: string, playerId: string, answer: string) =>
-    axiosInstance.post(`/matches/rounds/${roundId}/answer`, { 
-      player_id: playerId,
-      answer 
-    }),
+  if (error instanceof Error) {
+    throw new ApiError(error.message);
+  }
   
-  setWinners: (roundId: string, data: { winner_ids: string[] }) =>
-    axiosInstance.post(`/matches/rounds/${roundId}/winner`, data),
+  throw new ApiError('An unknown error occurred');
 };
 
-// Arena API
+// Type helper for API responses
+export type ApiResponseWrapper<T> = Promise<AxiosResponse<ApiResponse<T>>>;
+
+
+================================================================================
+File: frontend\src\services\arenaApi.ts
+================================================================================
+
+import { ApiResponse } from '../types';
+import { ArenaSession, ArenaMatch } from '../types/arena';
+import { axiosInstance, ApiResponseWrapper, handleApiError } from './apiUtils';
+import { transformMatchData } from '../utils/matchTransformUtils';
+import { RawMatch } from './matchApi';
+
+export interface ArenaResults {
+  rankings: Array<{
+    student_id: string;
+    name: string;
+    elo_rating: number;
+    wins: number;
+    losses: number;
+    fights_played: number;
+    elo_change: number;
+  }>;
+  matches: RawMatch[];
+}
+
+interface SetMatchWinnerResponse {
+  match: RawMatch;
+  arena_session: ArenaSession;
+}
+
 export const arenaApi = {
-  createSession: (data: { student_ids: string[], num_rounds: number }) =>
-    axiosInstance.post('/arena', data),
-  
-  getNextMatch: (arenaId: string) =>
-    axiosInstance.get(`/arena/${arenaId}/next-match`),
-  
-  setMatchWinner: (matchId: string, winnerIds: string[]) =>
-    axiosInstance.patch(`/arena/matches/${matchId}/winner`, { winner_ids: winnerIds }),
-  
-  getResults: (arenaId: string) =>
-    axiosInstance.get(`/arena/${arenaId}/results`),
-};
-
-// Student API
-export const studentApi = {
-  getAll: () => axiosInstance.get<ApiResponse<Student[]>>('/students'),
-  getById: (id: string) => axiosInstance.get<ApiResponse<Student>>(`/students/${id}`),
-  create: (data: CreateStudentRequest) => axiosInstance.post<ApiResponse<Student>>('/students', data),
-  update: (id: string, data: CreateStudentRequest) => axiosInstance.put<ApiResponse<Student>>(`/students/${id}`, data),
-  delete: (id: string) => axiosInstance.delete(`/students/${id}`),
-  getStats: (id: string) => axiosInstance.get<ApiResponse<Student>>(`/students/${id}/stats`),
-  getHistory: (id: string) => axiosInstance.get<ApiResponse<any[]>>(`/students/${id}/history`),
-  resetStats: (id: string) => axiosInstance.post<ApiResponse<Student>>(`/students/${id}/reset`),
-};
-
-// Flashcard API
-export const flashcardApi = {
-  getAll: () => axiosInstance.get<ApiResponse<Flashcard[]>>('/flashcards/all'),
-  getById: (id: string) => axiosInstance.get<ApiResponse<Flashcard>>(`/flashcards/${id}`),
-  create: (data: CreateFlashcardRequest) => axiosInstance.post<ApiResponse<Flashcard>>('/flashcards', data),
-  update: (id: string, data: CreateFlashcardRequest) => axiosInstance.put<ApiResponse<Flashcard>>(`/flashcards/${id}`, data),
-  delete: (id: string) => axiosInstance.delete(`/flashcards/${id}`),
-  getByPack: (packId: string) => axiosInstance.get<ApiResponse<Flashcard[]>>(`/flashcards/pack/${packId}`),
-  
-  // Statistics endpoints
-  getStats: (id: string) => axiosInstance.get<ApiResponse<FlashcardStats>>(`/stats/flashcards/${id}/stats`),
-  getMostUsed: (limit?: number) => axiosInstance.get<ApiResponse<FlashcardUsageStats[]>>('/stats/flashcards/most-used', {
-    params: { limit }
-  }),
-  getArenaStats: (arenaId: string) => axiosInstance.get<ApiResponse<FlashcardArenaStats[]>>(`/stats/arena/${arenaId}/flashcard-stats`),
-
-  // Bulk ops
-  getImportTemplate: () => axiosInstance.post<Blob>('/flashcards/template', null, { responseType: 'blob' }),
-  bulkImport: (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return axiosInstance.post<ApiResponse<BulkImportResult>>('/flashcards/bulk-import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+  createSession: async (data: { student_ids: string[]; num_rounds: number }): ApiResponseWrapper<ArenaSession> => {
+    try {
+      return await axiosInstance.post<ApiResponse<ArenaSession>>('/arena', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
-  exportPack: (packId: string) => axiosInstance.get<Blob>(`/flashcards/export/${packId}`, { responseType: 'blob' }),
+
+  getNextMatch: async (arenaId: string): ApiResponseWrapper<RawMatch> => {
+    try {
+      return await axiosInstance.get<ApiResponse<RawMatch>>(`/arena/${arenaId}/next-match`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  setMatchWinner: async (matchId: string, winnerIds: string[]): ApiResponseWrapper<SetMatchWinnerResponse> => {
+    try {
+      return await axiosInstance.patch<ApiResponse<SetMatchWinnerResponse>>(`/arena/matches/${matchId}/winner`, {
+        winner_ids: winnerIds
+      });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getResults: async (arenaId: string): ApiResponseWrapper<ArenaResults> => {
+    try {
+      return await axiosInstance.get<ApiResponse<ArenaResults>>(`/arena/${arenaId}/results`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
 };
 
-// Flashcard Pack API
-export const flashcardPackApi = {
-  getAll: () => axiosInstance.get<ApiResponse<FlashcardPack[]>>('/flashcards/packs'),
-  getById: (id: string) => axiosInstance.get<ApiResponse<FlashcardPack>>(`/flashcards/packs/${id}`),
-  create: (data: CreateFlashcardPackRequest) => axiosInstance.post<ApiResponse<FlashcardPack>>('/flashcards/packs', data),
-  update: (id: string, data: CreateFlashcardPackRequest) => axiosInstance.put<ApiResponse<FlashcardPack>>(`/flashcards/packs/${id}`, data),
-  delete: (id: string) => axiosInstance.delete(`/flashcards/packs/${id}`),
-};
 
+================================================================================
+File: frontend\src\services\flashcardApi.ts
+================================================================================
+
+import { ApiResponse, Flashcard, CreateFlashcardRequest, FlashcardStats, FlashcardUsageStats, FlashcardArenaStats, BulkImportResult } from '../types';
+import { axiosInstance, ApiResponseWrapper, handleApiError } from './apiUtils';
+
+export const flashcardApi = {
+  getAll: async (): ApiResponseWrapper<Flashcard[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<Flashcard[]>>('/flashcards/all');
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getById: async (id: string): ApiResponseWrapper<Flashcard> => {
+    try {
+      return await axiosInstance.get<ApiResponse<Flashcard>>(`/flashcards/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  create: async (data: CreateFlashcardRequest): ApiResponseWrapper<Flashcard> => {
+    try {
+      return await axiosInstance.post<ApiResponse<Flashcard>>('/flashcards', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  update: async (id: string, data: CreateFlashcardRequest): ApiResponseWrapper<Flashcard> => {
+    try {
+      return await axiosInstance.put<ApiResponse<Flashcard>>(`/flashcards/${id}`, data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  delete: async (id: string): ApiResponseWrapper<void> => {
+    try {
+      return await axiosInstance.delete(`/flashcards/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getByPack: async (packId: string): ApiResponseWrapper<Flashcard[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<Flashcard[]>>(`/flashcards/pack/${packId}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // Statistics endpoints
+  getStats: async (id: string): ApiResponseWrapper<FlashcardStats> => {
+    try {
+      return await axiosInstance.get<ApiResponse<FlashcardStats>>(`/stats/flashcards/${id}/stats`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getMostUsed: async (limit?: number): ApiResponseWrapper<FlashcardUsageStats[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<FlashcardUsageStats[]>>('/stats/flashcards/most-used', {
+        params: { limit }
+      });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getArenaStats: async (arenaId: string): ApiResponseWrapper<FlashcardArenaStats[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<FlashcardArenaStats[]>>(`/stats/arena/${arenaId}/flashcard-stats`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // Bulk operations
+  getImportTemplate: async (): Promise<Blob> => {
+    try {
+      const response = await axiosInstance.post<Blob>('/flashcards/template', null, { 
+        responseType: 'blob' 
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  bulkImport: async (file: File): ApiResponseWrapper<BulkImportResult> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      return await axiosInstance.post<ApiResponse<BulkImportResult>>('/flashcards/bulk-import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  exportPack: async (packId: string): Promise<Blob> => {
+    try {
+      const response = await axiosInstance.get<Blob>(`/flashcards/export/${packId}`, { 
+        responseType: 'blob' 
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+};
 
 
 ================================================================================
@@ -10938,6 +11315,56 @@ export const flashcardExtraApi = {
 
 
 ================================================================================
+File: frontend\src\services\flashcardPackApi.ts
+================================================================================
+
+import { ApiResponse, FlashcardPack, CreateFlashcardPackRequest } from '../types';
+import { axiosInstance, ApiResponseWrapper, handleApiError } from './apiUtils';
+
+export const flashcardPackApi = {
+  getAll: async (): ApiResponseWrapper<FlashcardPack[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<FlashcardPack[]>>('/flashcards/packs');
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getById: async (id: string): ApiResponseWrapper<FlashcardPack> => {
+    try {
+      return await axiosInstance.get<ApiResponse<FlashcardPack>>(`/flashcards/packs/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  create: async (data: CreateFlashcardPackRequest): ApiResponseWrapper<FlashcardPack> => {
+    try {
+      return await axiosInstance.post<ApiResponse<FlashcardPack>>('/flashcards/packs', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  update: async (id: string, data: CreateFlashcardPackRequest): ApiResponseWrapper<FlashcardPack> => {
+    try {
+      return await axiosInstance.put<ApiResponse<FlashcardPack>>(`/flashcards/packs/${id}`, data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  delete: async (id: string): ApiResponseWrapper<void> => {
+    try {
+      return await axiosInstance.delete(`/flashcards/packs/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+};
+
+
+================================================================================
 File: frontend\src\services\flashcardPackEntityApi.ts
 ================================================================================
 
@@ -10973,6 +11400,182 @@ export const flashcardPackEntityApi: EntityApi<FlashcardPack> = {
   },
 };
 
+
+
+================================================================================
+File: frontend\src\services\matchApi.ts
+================================================================================
+
+import { ApiResponse } from '../types';
+import { axiosInstance, ApiResponseWrapper, handleApiError } from './apiUtils';
+import { MatchStatus } from '../types';
+
+// Shared interface for raw match data from API
+export interface RawMatch {
+  id: string;
+  status: MatchStatus;
+  num_rounds: number;
+  rounds_completed: number;
+  participants: Array<{
+    student_id: string;
+    elo_before: number;
+    elo_after: number | null;
+  }>;
+  winner_ids: string[];
+}
+
+interface Round {
+  id: string;
+  match_id: string;
+  flashcard_id: string;
+  status: string;
+  answers: {
+    player_id: string;
+    answer: string;
+  }[];
+  winner_ids: string[];
+}
+
+// Match API
+export const matchApi = {
+  createMultiplayer: async (data: { player_ids: string[]; num_rounds: number }): ApiResponseWrapper<RawMatch> => {
+    try {
+      return await axiosInstance.post<ApiResponse<RawMatch>>('/matches/multiplayer', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  autoMatch: async (data: { num_players: number; num_rounds: number; student_id: string }): ApiResponseWrapper<RawMatch> => {
+    try {
+      return await axiosInstance.post<ApiResponse<RawMatch>>('/matches/auto-match', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getById: async (matchId: string): ApiResponseWrapper<RawMatch> => {
+    try {
+      return await axiosInstance.get<ApiResponse<RawMatch>>(`/matches/${matchId}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  updateStatus: async (matchId: string, status: MatchStatus): ApiResponseWrapper<RawMatch> => {
+    try {
+      return await axiosInstance.patch<ApiResponse<RawMatch>>(`/matches/${matchId}/status`, { status });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+};
+
+// Round API
+export const roundApi = {
+  create: async (data: { match_id: string; flashcard_id: string }): ApiResponseWrapper<Round> => {
+    try {
+      return await axiosInstance.post<ApiResponse<Round>>('/matches/rounds', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  submitAnswer: async (roundId: string, playerId: string, answer: string): ApiResponseWrapper<Round> => {
+    try {
+      return await axiosInstance.post<ApiResponse<Round>>(`/matches/rounds/${roundId}/answer`, {
+        player_id: playerId,
+        answer,
+      });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  setWinners: async (roundId: string, winnerIds: string[]): ApiResponseWrapper<Round> => {
+    try {
+      return await axiosInstance.post<ApiResponse<Round>>(`/matches/rounds/${roundId}/winner`, {
+        winner_ids: winnerIds,
+      });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+};
+
+
+================================================================================
+File: frontend\src\services\studentApi.ts
+================================================================================
+
+import { ApiResponse, CreateStudentRequest, Student } from '../types';
+import { axiosInstance, ApiResponseWrapper, handleApiError } from './apiUtils';
+
+export const studentApi = {
+  getAll: async (): ApiResponseWrapper<Student[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<Student[]>>('/students');
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getById: async (id: string): ApiResponseWrapper<Student> => {
+    try {
+      return await axiosInstance.get<ApiResponse<Student>>(`/students/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  create: async (data: CreateStudentRequest): ApiResponseWrapper<Student> => {
+    try {
+      return await axiosInstance.post<ApiResponse<Student>>('/students', data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  update: async (id: string, data: CreateStudentRequest): ApiResponseWrapper<Student> => {
+    try {
+      return await axiosInstance.put<ApiResponse<Student>>(`/students/${id}`, data);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  delete: async (id: string): ApiResponseWrapper<void> => {
+    try {
+      return await axiosInstance.delete(`/students/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getStats: async (id: string): ApiResponseWrapper<Student> => {
+    try {
+      return await axiosInstance.get<ApiResponse<Student>>(`/students/${id}/stats`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  getHistory: async (id: string): ApiResponseWrapper<any[]> => {
+    try {
+      return await axiosInstance.get<ApiResponse<any[]>>(`/students/${id}/history`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  resetStats: async (id: string): ApiResponseWrapper<Student> => {
+    try {
+      return await axiosInstance.post<ApiResponse<Student>>(`/students/${id}/reset`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+};
 
 
 ================================================================================
@@ -11018,231 +11621,66 @@ File: frontend\src\stores\battleStore.ts
 ================================================================================
 
 import { create } from 'zustand';
-import { arenaApi, matchApi } from '../services/api';
-import { MatchStatus, ArenaSessionStatus } from '../types';
-import type { Match } from '../types';
+import type { StateCreator, StoreApi } from 'zustand';
+import { createMatchSlice, type MatchSlice } from './slices/matchSlice';
+import { createArenaSlice, type ArenaSlice } from './slices/arenaSlice';
+import type { ArenaMatch, ArenaSession } from '../types/arena';
 
-interface ArenaSession {
-  id: string;
-  status: ArenaSessionStatus;
-  num_rounds: number;
-  rounds_completed: number;
-  participants: Array<{
-    student_id: string;
-    name: string;
-    elo_rating: number;
-    wins: number;
-    losses: number;
-    fights_played: number;
-    elo_change: number;
-  }>;
-}
-
-interface ArenaMatch {
-  id: string;
-  status: MatchStatus;
-  num_rounds: number;
-  rounds_completed: number;
-  player1_id: string;
-  player2_id: string;
-  winner_ids: string[];
-  player1_elo_before: number;
-  player2_elo_before: number;
-  player1_elo_after: number | null;
-  player2_elo_after: number | null;
-}
-
-interface BattleStoreState {
-  currentArenaSession: ArenaSession | null;
-  currentArenaMatch: ArenaMatch | null;
+// Base state interface
+interface BattleState {
   loading: boolean;
   error: string | null;
-
-  // Match Actions
-  autoCreateMatch: (numPlayers: number, numRounds: number, studentId: string) => Promise<void>;
-
-  // Arena Actions
-  createArenaSession: (playerIds: string[], numRounds: number) => Promise<void>;
-  getNextArenaMatch: () => Promise<void>;
-  setArenaMatchWinner: (winnerIds: string[]) => Promise<{
-    match: Match;
-    arena_session: ArenaSession;
-  }>;
-  getArenaResults: () => Promise<void>;
-  resetArena: () => void;
+  currentArenaMatch: ArenaMatch | null;
+  currentArenaSession: ArenaSession | null;
 }
 
-export const useBattleStore = create<BattleStoreState>((set, get) => ({
-  currentArenaSession: null,
-  currentArenaMatch: null,
+// Combined store type
+type BattleStore = BattleState & MatchSlice & ArenaSlice;
+
+// Middleware type
+type StoreMiddleware = <T extends BattleState>(
+  config: StateCreator<T, [], [], T>
+) => StateCreator<T, [], [], T>;
+
+// Middleware to handle loading and error states
+const withLoadingMiddleware: StoreMiddleware = (config) => 
+  (set, get, api) => {
+    const wrappedSet: typeof set = (...args) => {
+      const currentState = get();
+      const newState = args[0];
+      
+      // Preserve loading and error states if they're not explicitly set
+      if (typeof newState === 'object') {
+        if (!('loading' in newState)) {
+          (newState as any).loading = currentState.loading;
+        }
+        if (!('error' in newState)) {
+          (newState as any).error = currentState.error;
+        }
+      }
+      
+      return set(...args);
+    };
+    
+    return config(wrappedSet, get, api);
+  };
+
+// Initial state
+const initialState: BattleState = {
   loading: false,
   error: null,
+  currentArenaMatch: null,
+  currentArenaSession: null,
+};
 
-  autoCreateMatch: async (numPlayers: number, numRounds: number, studentId: string) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await matchApi.autoMatch({ 
-        num_players: numPlayers,
-        num_rounds: numRounds,
-        student_id: studentId
-      });
-      set({ loading: false });
-      return response.data;
-    } catch (err) {
-      console.error('Failed to auto-create match:', err);
-      set({ 
-        error: 'Failed to auto-create match',
-        loading: false 
-      });
-    }
-  },
-
-  createArenaSession: async (playerIds: string[], numRounds: number) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await arenaApi.createSession({ 
-        student_ids: playerIds,
-        num_rounds: numRounds 
-      });
-      set({ 
-        currentArenaSession: response.data.data,
-        loading: false 
-      });
-    } catch (err) {
-      console.error('Failed to create arena session:', err);
-      set({ 
-        error: 'Failed to create arena session',
-        loading: false 
-      });
-    }
-  },
-
-  getNextArenaMatch: async () => {
-    set({ loading: true, error: null });
-    try {
-      const arenaSession = get().currentArenaSession;
-      if (!arenaSession) throw new Error('No active arena session');
-
-      const response = await arenaApi.getNextMatch(arenaSession.id);
-      const match = response.data.data;
-      
-      // Transform match data to expected frontend format
-      if (match.participants && match.participants.length === 2) {
-        const transformedMatch = {
-          ...match,
-          player1_id: match.participants[0].student_id,
-          player2_id: match.participants[1].student_id,
-          player1_elo_before: match.participants[0].elo_before,
-          player2_elo_before: match.participants[1].elo_before,
-          player1_elo_after: match.participants[0].elo_after,
-          player2_elo_after: match.participants[1].elo_after,
-          winner_ids: []
-        };
-        set({ 
-          currentArenaMatch: transformedMatch,
-          loading: false 
-        });
-      } else {
-        throw new Error('Invalid match data: Expected exactly 2 participants');
-      }
-    } catch (err) {
-      console.error('Failed to get next match:', err);
-      set({ 
-        error: err instanceof Error ? err.message : 'Failed to get next match',
-        loading: false 
-      });
-    }
-  },
-
-  setArenaMatchWinner: async (winnerIds: string[]) => {
-    set({ loading: true, error: null });
-    try {
-      const match = get().currentArenaMatch;
-      if (!match) throw new Error('No active match');
-
-      const response = await arenaApi.setMatchWinner(match.id, winnerIds);
-      if (!response?.data?.data) {
-        throw new Error('Invalid response from setMatchWinner');
-      }
-
-      const { match: updatedMatch, arena_session: updatedArenaSession } = response.data.data;
-
-      // Transform updated match data
-      const transformedMatch = {
-        ...updatedMatch,
-        player1_id: updatedMatch.participants[0].student_id,
-        player2_id: updatedMatch.participants[1].student_id,
-        player1_elo_before: updatedMatch.participants[0].elo_before,
-        player2_elo_before: updatedMatch.participants[1].elo_before,
-        player1_elo_after: updatedMatch.participants[0].elo_after,
-        player2_elo_after: updatedMatch.participants[1].elo_after,
-        winner_ids: winnerIds
-      };
-
-      // Update arena session with the correct data from backend
-      set({
-        currentArenaSession: updatedArenaSession,
-        currentArenaMatch: transformedMatch,
-        loading: false
-      });
-
-      // Return the response data for the hook to use
-      return response.data.data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to set match winner';
-      console.error('Failed to set match winner:', err);
-      set({ 
-        error: errorMessage,
-        loading: false 
-      });
-      throw err; // Re-throw to let hook handle error
-    }
-  },
-
-  getArenaResults: async () => {
-    set({ loading: true, error: null });
-    try {
-      const arenaSession = get().currentArenaSession;
-      if (!arenaSession) {
-        console.warn('No arena session to fetch results for');
-        set({ loading: false });
-        return;
-      }
-
-      const response = await arenaApi.getResults(arenaSession.id);
-      const finalParticipants = response.data.data;
-
-      // Merge final results into current session
-      set((state) => ({
-        currentArenaSession: state.currentArenaSession
-          ? {
-              ...state.currentArenaSession,
-              participants: finalParticipants,
-              status: ArenaSessionStatus.COMPLETED,
-            }
-          : null,
-        currentArenaMatch: null, // no active match anymore
-        loading: false,
-        error: null,
-      }));
-    } catch (err) {
-      console.error('Failed to get arena results:', err);
-      set({ 
-        error: 'Failed to get arena results',
-        loading: false 
-      });
-    }
-  },
-
-  resetArena: () => {
-    set({
-      currentArenaSession: null,
-      currentArenaMatch: null,
-      error: null,
-      loading: false
-    });
-  }
-}));
+// Create the store with middleware
+export const useBattleStore = create<BattleStore>()(
+  withLoadingMiddleware((set, get, _store) => ({
+    ...initialState,
+    ...createMatchSlice(set, get, _store),
+    ...createArenaSlice(set, get, _store)
+  }))
+);
 
 
 
@@ -11824,6 +12262,188 @@ export const useStudentStore = create<StudentStoreState>(createStore);
 
 
 ================================================================================
+File: frontend\src\stores\slices\arenaSlice.ts
+================================================================================
+
+import type { StateCreator } from 'zustand';
+import type { ArenaMatch, ArenaSession } from '../../types/arena';
+import { arenaApi } from '../../services/api';
+import { wrapStoreAction } from '../../utils/errorUtils';
+import { transformMatchData } from '../../utils/matchTransformUtils';
+import { ArenaSessionStatus } from '../../types';
+
+export interface ArenaSlice {
+  createArenaSession: (playerIds: string[], numRounds: number) => Promise<void>;
+  getNextArenaMatch: () => Promise<void>;
+  setArenaMatchWinner: (winnerIds: string[]) => Promise<{
+    match: ArenaMatch;
+    arena_session: ArenaSession;
+  }>;
+  getArenaResults: () => Promise<void>;
+  resetArena: () => void;
+}
+
+export interface ArenaSliceState {
+  currentArenaSession: ArenaSession | null;
+  currentArenaMatch: ArenaMatch | null;
+  loading: boolean;
+  error: string | null;
+}
+
+type ArenaStateCreator = StateCreator<
+  ArenaSliceState,
+  [],
+  [],
+  ArenaSlice
+>;
+
+export const createArenaSlice: ArenaStateCreator = (set, get, store) => ({
+  createArenaSession: async (playerIds: string[], numRounds: number) => {
+    await wrapStoreAction(
+      'create arena session',
+      set,
+      async () => {
+        const response = await arenaApi.createSession({ 
+          student_ids: playerIds,
+          num_rounds: numRounds 
+        });
+        set({ currentArenaSession: response.data.data });
+      }
+    );
+  },
+
+  getNextArenaMatch: async () => {
+    await wrapStoreAction(
+      'get next match',
+      set,
+      async () => {
+        const arenaSession = get().currentArenaSession;
+        if (!arenaSession) throw new Error('No active arena session');
+
+        const response = await arenaApi.getNextMatch(arenaSession.id);
+        const transformedMatch = transformMatchData(response.data.data);
+        set({ currentArenaMatch: transformedMatch });
+      }
+    );
+  },
+
+  setArenaMatchWinner: async (winnerIds: string[]) => {
+    const result = await wrapStoreAction(
+      'set match winner',
+      set,
+      async () => {
+        const match = get().currentArenaMatch;
+        if (!match) throw new Error('No active match');
+
+        const response = await arenaApi.setMatchWinner(match.id, winnerIds);
+        const { match: updatedMatch, arena_session: updatedArenaSession } = response.data.data;
+        const transformedMatch = transformMatchData({ ...updatedMatch, winner_ids: winnerIds });
+
+        set({
+          currentArenaSession: updatedArenaSession,
+          currentArenaMatch: transformedMatch
+        });
+
+        return {
+          match: transformedMatch,
+          arena_session: updatedArenaSession
+        };
+      }
+    );
+    
+    if (!result) {
+      throw new Error('Failed to set match winner');
+    }
+    
+    return result;
+  },
+
+  getArenaResults: async () => {
+    await wrapStoreAction(
+      'get arena results',
+      set,
+      async () => {
+        const arenaSession = get().currentArenaSession;
+        if (!arenaSession) {
+          console.warn('No arena session to fetch results for');
+          return;
+        }
+
+        const response = await arenaApi.getResults(arenaSession.id);
+        const { rankings } = response.data.data;
+
+        set((state) => ({
+          currentArenaSession: state.currentArenaSession
+            ? {
+                ...state.currentArenaSession,
+                participants: rankings,
+                status: ArenaSessionStatus.COMPLETED,
+              }
+            : null,
+          currentArenaMatch: null
+        }));
+      }
+    );
+  },
+
+  resetArena: () => {
+    set({
+      currentArenaSession: null,
+      currentArenaMatch: null,
+      error: null,
+      loading: false
+    });
+  }
+});
+
+
+================================================================================
+File: frontend\src\stores\slices\matchSlice.ts
+================================================================================
+
+import type { StateCreator } from 'zustand';
+import { matchApi } from '../../services/api';
+import { wrapStoreAction } from '../../utils/errorUtils';
+import type { ArenaMatch } from '../../types/arena';
+import { transformMatchData } from '../../utils/matchTransformUtils';
+
+export interface MatchSlice {
+  autoCreateMatch: (numPlayers: number, numRounds: number, studentId: string) => Promise<void>;
+}
+
+export interface MatchSliceState {
+  currentArenaMatch: ArenaMatch | null;
+  loading: boolean;
+  error: string | null;
+}
+
+type MatchStateCreator = StateCreator<
+  MatchSliceState,
+  [],
+  [],
+  MatchSlice
+>;
+
+export const createMatchSlice: MatchStateCreator = (set, get, store) => ({
+  autoCreateMatch: async (numPlayers: number, numRounds: number, studentId: string) => {
+    await wrapStoreAction(
+      'auto-create match',
+      set,
+      async () => {
+        const response = await matchApi.autoMatch({ 
+          num_players: numPlayers,
+          num_rounds: numRounds,
+          student_id: studentId
+        });
+        const transformedMatch = transformMatchData(response.data.data);
+        set({ currentArenaMatch: transformedMatch });
+      }
+    );
+  }
+});
+
+
+================================================================================
 File: frontend\src\theme\index.ts
 ================================================================================
 
@@ -11977,7 +12597,38 @@ declare module '@mantine/core' {
 File: frontend\src\types\arena.ts
 ================================================================================
 
-import type { Student, Flashcard } from './index';
+import type { Student, Flashcard, Match } from './index';
+import { ArenaSessionStatus, MatchStatus } from './index';
+
+export interface ArenaSession {
+  id: string;
+  status: ArenaSessionStatus;
+  num_rounds: number;
+  rounds_completed: number;
+  participants: Array<{
+    student_id: string;
+    name: string;
+    elo_rating: number;
+    wins: number;
+    losses: number;
+    fights_played: number;
+    elo_change: number;
+  }>;
+}
+
+export interface ArenaMatch {
+  id: string;
+  status: MatchStatus;
+  num_rounds: number;
+  rounds_completed: number;
+  player1_id: string;
+  player2_id: string;
+  winner_ids: string[];
+  player1_elo_before: number;
+  player2_elo_before: number;
+  player1_elo_after: number | null;
+  player2_elo_after: number | null;
+}
 
 export enum ArenaStep {
   SETUP = 'setup',      // choose pack, players, rounds
@@ -12248,4 +12899,123 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+
+
+================================================================================
+File: frontend\src\utils\errorUtils.ts
+================================================================================
+
+type SetErrorState = (state: { error: string | null; loading: boolean }) => void;
+
+export const handleStoreError = (err: unknown): string => {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return 'An unknown error occurred';
+};
+
+export const wrapStoreAction = async <T>(
+  operation: string,
+  setState: SetErrorState,
+  action: () => Promise<T>
+): Promise<T> => {
+  setState({ loading: true, error: null });
+  try {
+    const result = await action();
+    setState({ loading: false, error: null });
+    return result;
+  } catch (err) {
+    const errorMessage = handleStoreError(err);
+    console.error(`Failed to ${operation}:`, err);
+    setState({ 
+      error: errorMessage,
+      loading: false 
+    });
+    throw new Error(errorMessage);
+  }
+};
+
+
+================================================================================
+File: frontend\src\utils\matchTransformUtils.ts
+================================================================================
+
+import type { ArenaMatch } from '../types/arena';
+import { MatchStatus } from '../types';
+
+interface MatchParticipant {
+  student_id: string;
+  elo_before: number;
+  elo_after: number | null;
+}
+
+interface RawMatch {
+  id: string;
+  status: MatchStatus;
+  num_rounds: number;
+  rounds_completed: number;
+  participants: MatchParticipant[];
+  winner_ids: string[];
+}
+
+export const transformMatchData = (match: RawMatch): ArenaMatch => {
+  if (!match.participants || match.participants.length !== 2) {
+    throw new Error('Invalid match data: Expected exactly 2 participants');
+  }
+
+  const transformedMatch: ArenaMatch = {
+    id: match.id,
+    status: match.status,
+    num_rounds: match.num_rounds,
+    rounds_completed: match.rounds_completed,
+    player1_id: match.participants[0].student_id,
+    player2_id: match.participants[1].student_id,
+    player1_elo_before: match.participants[0].elo_before,
+    player2_elo_before: match.participants[1].elo_before,
+    player1_elo_after: match.participants[0].elo_after,
+    player2_elo_after: match.participants[1].elo_after,
+    winner_ids: match.winner_ids || []
+  };
+
+  return transformedMatch;
+};
+
+
+================================================================================
+File: frontend\src\utils\playerUtils.ts
+================================================================================
+
+import { Student } from '../types';
+
+interface MatchPlayers {
+  player1: Student;
+  player2: Student;
+}
+
+export const findMatchPlayers = (
+  students: Student[],
+  player1Id: string,
+  player2Id: string
+): MatchPlayers | Error => {
+  const player1 = students.find(s => s.id === player1Id);
+  const player2 = students.find(s => s.id === player2Id);
+
+  if (!player1 || !player2) {
+    return new Error('Players not found');
+  }
+
+  return { player1, player2 };
+};
+
+export const createParticipantData = (
+  player: Student,
+  eloBefore: number
+) => ({
+  student_id: player.id,
+  student: player,
+  elo_before: eloBefore,
+});
 

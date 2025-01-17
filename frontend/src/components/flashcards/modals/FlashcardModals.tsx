@@ -348,8 +348,8 @@ export function BulkOperationsModal({
   // Memoize handlers
   const handleDownloadTemplate = useCallback(async () => {
     try {
-      const response = await flashcardApi.getImportTemplate();
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = await flashcardApi.getImportTemplate();
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'flashcard_template.csv');
@@ -365,8 +365,8 @@ export function BulkOperationsModal({
     if (!selectedPack) return;
 
     try {
-      const response = await flashcardApi.exportPack(selectedPack);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = await flashcardApi.exportPack(selectedPack);
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `flashcards_pack_${selectedPack}.csv`);

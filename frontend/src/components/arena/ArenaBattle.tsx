@@ -1,13 +1,11 @@
-import React, { useCallback, useEffect } from 'react';
-import { Stack, Box } from '@mantine/core';
-import { ErrorAlert } from '../shared/ErrorAlert';
-import { ErrorBoundary } from '../shared/ErrorBoundary';
-import { ArenaBattleCard } from './ArenaBattleCard';
-import { VersusScreen } from './VersusScreen';
-import { ArenaResultScreen } from './ArenaResultScreen';
+import React, { useCallback } from 'react';
+import { Box } from '@mantine/core';
 import { ArenaStep } from '../../types/arena';
 import type { Student, Flashcard } from '../../types';
-import { useSound } from '../../hooks/useSound';
+import { useArenaBattleSounds } from '../../hooks/useArenaBattleSounds';
+import { VersusScreenWrapper } from './screens/VersusScreenWrapper';
+import { BattleScreen } from './screens/BattleScreen';
+import { FinalResultScreen } from './screens/FinalResultScreen';
 
 interface ArenaBattleProps {
   step: ArenaStep;
@@ -41,143 +39,45 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   onReset,
   isLoading,
 }) => {
-  // Destructure the sound functions
-  const {
-    playBattleSound,
-    stopBattleSound,
-    playVsSound,
-    playResultSound,
-  } = useSound();
+  // Handle sound effects based on arena step
+  useArenaBattleSounds(step);
 
   const canPickWinner = step !== ArenaStep.VERSUS && !isLoading;
-
-  /**
-   * Manage sounds based on arena step changes
-   */
-  useEffect(() => {
-    switch (step) {
-      case ArenaStep.VERSUS:
-        // Stop any leftover battle sound
-        stopBattleSound();
-        // Play the vs screen sound once
-        playVsSound();
-        break;
-      case ArenaStep.BATTLE:
-        // Start the looping battle sound
-        playBattleSound();
-        break;
-      case ArenaStep.FINAL_RESULT:
-        // Stop battle sound if it's still playing
-        stopBattleSound();
-        // Play the result screen sound once
-        playResultSound();
-        break;
-      default:
-        // In other steps (SETUP, ROUND_RESULT, etc.), no battle sound is needed
-        stopBattleSound();
-        break;
-    }
-    // Cleanup: if we unmount while battle-sound might be playing
-    return () => {
-      stopBattleSound();
-    };
-  }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
-
 
   const handleVersusAnimationDone = useCallback(() => {
     onVersusReady();
   }, [onVersusReady]);
 
-  const renderVersusScreen = () => {
-    if (step !== ArenaStep.VERSUS) return null;
-    if (!currentMatch) {
-      return <ErrorAlert error="Match data not found" onRetry={onReset} />;
-    }
-
-    const player1 = students.find(s => s.id === currentMatch.player1_id);
-    const player2 = students.find(s => s.id === currentMatch.player2_id);
-
-    if (!player1 || !player2) {
-      return <ErrorAlert error="Players not found" onRetry={onReset} />;
-    }
-
-    return (
-      <ErrorBoundary fallback={<ErrorAlert error="Failed to display versus screen" onRetry={onReset} />}>
-        <VersusScreen
-          participants={[
-            {
-              student_id: player1.id,
-              student: player1,
-              elo_before: currentMatch.player1_elo_before,
-            },
-            {
-              student_id: player2.id,
-              student: player2,
-              elo_before: currentMatch.player2_elo_before,
-            },
-          ]}
-          onAnimationComplete={handleVersusAnimationDone}
-        />
-      </ErrorBoundary>
-    );
-  };
-
-  const renderBattleScreen = () => {
-    if (step !== ArenaStep.BATTLE) return null;
-    if (!currentMatch || !currentFlashcard) {
-      return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
-    }
-
-    const player1 = students.find(s => s.id === currentMatch.player1_id);
-    const player2 = students.find(s => s.id === currentMatch.player2_id);
-
-    if (!player1 || !player2) {
-      return <ErrorAlert error="Players not found" onRetry={onReset} />;
-    }
-
-    return (
-      <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
-        <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
-          <ArenaBattleCard
-            flashcard={currentFlashcard}
-            player1={player1}
-            player2={player2}
-            roundsCompleted={arenaSession?.rounds_completed || 0}
-            totalRounds={arenaSession?.num_rounds || 0}
-            onSelectWinner={onSelectWinner}
-            player1ELO={currentMatch.player1_elo_before}
-            player2ELO={currentMatch.player2_elo_before}
-            isLoading={isLoading}
-            canPickWinner={canPickWinner}
-          />
-        </Stack>
-      </ErrorBoundary>
-    );
-  };
-
-  const renderFinalResult = () => {
-    if (step !== ArenaStep.FINAL_RESULT) return null;
-    if (!arenaSession) {
-      return <ErrorAlert error="Session data not found" onRetry={onReset} />;
-    }
-
-    return (
-      <ErrorBoundary fallback={<ErrorAlert error="Failed to display results" onRetry={onReset} />}>
-        <Stack gap="md">
-          <ArenaResultScreen
-            results={arenaSession.participants}
-            onFinish={onReset}
-          />
-        </Stack>
-      </ErrorBoundary>
-    );
-  };
-
   return (
     <Box data-testid="arena-battle" style={{ width: '100%', position: 'relative' }}>
-      {renderVersusScreen()}
-      {renderBattleScreen()}
-      {renderFinalResult()}
+      {step === ArenaStep.VERSUS && (
+        <VersusScreenWrapper
+          currentMatch={currentMatch}
+          students={students}
+          onAnimationComplete={handleVersusAnimationDone}
+          onReset={onReset}
+        />
+      )}
+      
+      {step === ArenaStep.BATTLE && (
+        <BattleScreen
+          currentMatch={currentMatch}
+          currentFlashcard={currentFlashcard}
+          students={students}
+          arenaSession={arenaSession}
+          onSelectWinner={onSelectWinner}
+          onReset={onReset}
+          isLoading={isLoading}
+          canPickWinner={canPickWinner}
+        />
+      )}
+      
+      {step === ArenaStep.FINAL_RESULT && (
+        <FinalResultScreen
+          arenaSession={arenaSession}
+          onReset={onReset}
+        />
+      )}
     </Box>
   );
 };
