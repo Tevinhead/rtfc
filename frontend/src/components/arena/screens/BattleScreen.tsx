@@ -1,10 +1,11 @@
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Stack, Paper } from '@mantine/core';
 import { ErrorAlert } from '../../shared/ErrorAlert';
 import { ErrorBoundary } from '../../shared/ErrorBoundary';
 import { ArenaBattleCard } from '../ArenaBattleCard';
 import { Student, Flashcard } from '../../../types';
 import { findMatchPlayers } from '../../../utils/playerUtils';
+import { FullScreenWrapper } from './FullScreenWrapper';
 
 interface BattleScreenProps {
   currentMatch: {
@@ -36,7 +37,22 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   canPickWinner,
 }) => {
   if (!currentMatch || !currentFlashcard) {
-    return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
+    return (
+      <FullScreenWrapper>
+        <Paper
+          p="xl"
+          radius="lg"
+          style={{
+            background: 'rgba(255, 255, 255, 0.07)',
+            backdropFilter: 'blur(12px)',
+            maxWidth: '600px',
+            width: '100%',
+          }}
+        >
+          <ErrorAlert error="Battle data not found" onRetry={onReset} />
+        </Paper>
+      </FullScreenWrapper>
+    );
   }
 
   const playersResult = findMatchPlayers(
@@ -46,27 +62,71 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   );
 
   if (playersResult instanceof Error) {
-    return <ErrorAlert error={playersResult.message} onRetry={onReset} />;
+    return (
+      <FullScreenWrapper>
+        <Paper
+          p="xl"
+          radius="lg"
+          style={{
+            background: 'rgba(255, 255, 255, 0.07)',
+            backdropFilter: 'blur(12px)',
+            maxWidth: '600px',
+            width: '100%',
+          }}
+        >
+          <ErrorAlert error={playersResult.message} onRetry={onReset} />
+        </Paper>
+      </FullScreenWrapper>
+    );
   }
 
   const { player1, player2 } = playersResult;
 
   return (
-    <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
-      <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
-        <ArenaBattleCard
-          flashcard={currentFlashcard}
-          player1={player1}
-          player2={player2}
-          roundsCompleted={arenaSession?.rounds_completed || 0}
-          totalRounds={arenaSession?.num_rounds || 0}
-          onSelectWinner={onSelectWinner}
-          player1ELO={currentMatch.player1_elo_before}
-          player2ELO={currentMatch.player2_elo_before}
-          isLoading={isLoading}
-          canPickWinner={canPickWinner}
-        />
-      </Stack>
+    <ErrorBoundary 
+      fallback={
+        <FullScreenWrapper>
+          <Paper
+            p="xl"
+            radius="lg"
+            style={{
+              background: 'rgba(255, 255, 255, 0.07)',
+              backdropFilter: 'blur(12px)',
+              maxWidth: '600px',
+              width: '100%',
+            }}
+          >
+            <ErrorAlert error="Failed to display battle" onRetry={onReset} />
+          </Paper>
+        </FullScreenWrapper>
+      }
+    >
+      <FullScreenWrapper>
+        <Stack
+          align="center"
+          justify="center"
+          style={{
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            padding: 0,
+            overflow: 'hidden'
+          }}
+        >
+          <ArenaBattleCard
+            flashcard={currentFlashcard}
+            player1={player1}
+            player2={player2}
+            roundsCompleted={arenaSession?.rounds_completed || 0}
+            totalRounds={arenaSession?.num_rounds || 0}
+            onSelectWinner={onSelectWinner}
+            player1ELO={currentMatch.player1_elo_before}
+            player2ELO={currentMatch.player2_elo_before}
+            isLoading={isLoading}
+            canPickWinner={canPickWinner}
+          />
+        </Stack>
+      </FullScreenWrapper>
     </ErrorBoundary>
   );
 };

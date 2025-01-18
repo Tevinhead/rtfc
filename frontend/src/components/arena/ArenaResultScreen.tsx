@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Card, Text, Stack, Button, Group, Badge, Grid, Table } from '@mantine/core';
+import { Card, Text, Stack, Button, Group, Badge, Grid, Table, Avatar } from '@mantine/core';
 import { IconTrophy, IconArrowUp, IconArrowDown, IconConfetti } from '@tabler/icons-react';
 
 interface StudentStats {
@@ -11,6 +11,7 @@ interface StudentStats {
   losses: number;
   fights_played: number;
   elo_change: number;
+  avatar_url?: string;
 }
 
 interface ArenaResultScreenProps {
@@ -55,9 +56,11 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
       }}
       style={{
         width: '100%',
-        maxWidth: '95%',
+        height: '100%',
         margin: '0 auto',
-        padding: '2rem',
+        padding: 'min(2vh, 2rem)',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
       <Card
@@ -131,20 +134,33 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
                 >
                   <Stack align="center" gap="md">
                     <RankBadge rank={index + 1} />
-                    <Text size="xl" fw={700}>
+                    <Avatar
+                      src={student.avatar_url}
+                      alt={student.name}
+                      size={100}
+                      radius="xl"
+                      style={{
+                        border: '3px solid var(--mantine-color-blue-5)',
+                        boxShadow: '0 0 15px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      {!student.avatar_url && student.name ? student.name.charAt(0) : ''}
+                    </Avatar>
+                    <Text size="xl" fw={700} c="dark" style={{ fontSize: '1.8rem' }}>
                       {student.name}
                     </Text>
-                    <Badge size="lg" variant="filled" color="blue">
+                    <Badge size="xl" variant="filled" color="blue" style={{ fontSize: '1.2rem' }}>
                       {student.elo_rating} ELO
                     </Badge>
                     <Group>
-                      <Badge color="green">Wins: {student.wins}</Badge>
-                      <Badge color="red">Losses: {student.losses}</Badge>
+                      <Badge size="lg" color="green" style={{ fontSize: '1.1rem' }}>Wins: {student.wins}</Badge>
+                      <Badge size="lg" color="red" style={{ fontSize: '1.1rem' }}>Losses: {student.losses}</Badge>
                     </Group>
                     <Text
-                      size="lg"
-                      c={student.elo_change >= 0 ? 'green' : 'red'}
+                      size="xl"
+                      c={student.elo_change >= 0 ? 'dark' : 'dark'}
                       fw={700}
+                      style={{ fontSize: '1.4rem' }}
                     >
                       {student.elo_change > 0 ? '+' : ''}
                       {Math.round(student.elo_change)} ELO
@@ -163,18 +179,18 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
             withBorder
             style={{ width: '100%', background: 'rgba(255,255,255,0.9)' }}
           >
-            <Text size="lg" fw={700} mb="md">
+            <Text size="xl" fw={800} mb="md" c="dark" style={{ fontSize: '1.8rem' }}>
               Final Rankings
             </Text>
             <Table striped highlightOnHover>
               <thead>
                 <tr>
-                  <th>Rank</th>
-                  <th>Name</th>
-                  <th>W/L</th>
-                  <th>Fights</th>
-                  <th>Final ELO</th>
-                  <th>ELO Change</th>
+                  <th><Text size="lg" fw={700} c="dark">Rank</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">Name</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">W/L</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">Fights</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">Final ELO</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">ELO Change</Text></th>
                 </tr>
               </thead>
               <tbody>
@@ -185,16 +201,28 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
                       <td>
                         <RankBadge rank={index + 1} />
                       </td>
-                      <td>{student.name}</td>
                       <td>
-                        <Group gap="xs">
-                          <Text c="green">{student.wins}</Text>
-                          <Text>/</Text>
-                          <Text c="red">{student.losses}</Text>
+                        <Group gap="sm">
+                          <Avatar
+                            src={student.avatar_url}
+                            alt={student.name}
+                            size="md"
+                            radius="xl"
+                          >
+                            {!student.avatar_url && student.name ? student.name.charAt(0) : ''}
+                          </Avatar>
+                          <Text size="lg" fw={500} c="dark">{student.name}</Text>
                         </Group>
                       </td>
-                      <td>{student.fights_played}</td>
-                      <td>{student.elo_rating}</td>
+                      <td>
+                        <Group gap="xs">
+                          <Text size="lg" fw={600} c="dark">{student.wins}</Text>
+                          <Text size="lg" fw={500} c="dark">/</Text>
+                          <Text size="lg" fw={600} c="dark">{student.losses}</Text>
+                        </Group>
+                      </td>
+                      <td><Text size="lg" fw={500} c="dark">{student.fights_played}</Text></td>
+                      <td><Text size="lg" fw={500} c="dark">{student.elo_rating}</Text></td>
                       <td>
                         <Group gap="xs">
                           {isPositive ? (

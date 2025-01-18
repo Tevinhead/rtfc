@@ -223,7 +223,7 @@ async def set_match_winner(
         )
     }
 
-@router.get("/{arena_id}/results", response_model=dict[str, List[StudentStatsResponse]])
+@router.get("/{arena_id}/results", response_model=dict[str, dict[str, List[StudentStatsResponse]]])
 async def get_arena_results(
     arena_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -246,4 +246,4 @@ async def get_arena_results(
     stats = await arena_stats_service.calculate_arena_stats(
         db, arena_id, participant_students
     )
-    return {"data": stats}
+    return {"data": {"rankings": stats}}

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Text, Avatar, Grid, Box } from '@mantine/core';
+import { Text, Avatar, Grid, Box, Paper, MantineTheme } from '@mantine/core';
 import { MatchParticipant } from '../../types';
+import { FullScreenWrapper } from './screens/FullScreenWrapper';
 
 interface VersusScreenProps {
   participants?: MatchParticipant[];
@@ -76,30 +77,25 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
           maxWidth: '400px',
         }}
       >
-        <Box
+        <Paper
+          p="xl"
+          radius="lg"
           style={{
-            padding: '2rem',
-            borderRadius: '24px',
             background: 'rgba(255, 255, 255, 0.07)',
-            boxShadow: '0 16px 50px rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(12px)',
             textAlign: 'center',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '1.5rem',
+            gap: '1rem',
             border: '2px solid rgba(255, 255, 255, 0.15)',
             transition: 'all 0.3s ease',
             transform: 'translateY(0)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-8px)';
-            e.currentTarget.style.boxShadow = '0 20px 60px rgba(0, 0, 0, 0.6)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 16px 50px rgba(0, 0, 0, 0.5)';
+            ':hover': {
+              transform: 'translateY(-8px)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
+            }
           }}
         >
           <Avatar
@@ -125,7 +121,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
               textShadow: '0 2px 4px rgba(0,0,0,0.4)',
               textAlign: 'center',
               width: '100%',
-              fontSize: 'clamp(24px, 4vw, 36px)',
+              fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
               letterSpacing: '0.5px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -137,7 +133,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
 
           <Text
             style={{
-              fontSize: '2rem',
+              fontSize: 'clamp(1.25rem, 3vw, 2rem)',
               fontWeight: 700,
               color: '#FFD700',
               textShadow: '0 2px 4px rgba(0,0,0,0.5), 0 0 30px rgba(255,215,0,0.4)',
@@ -146,114 +142,114 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
           >
             {participant.elo_before || 1000} ELO
           </Text>
-        </Box>
+        </Paper>
       </motion.div>
     );
   };
 
   return (
-    <Box
-      data-testid="versus-screen"
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        minHeight: '600px',
-        maxHeight: '100vh',
-        background: `
-          linear-gradient(135deg, #1a237e 0%, #311b92 40%, #4a148c 100%),
-          radial-gradient(circle at 50% 50%, rgba(103, 58, 183, 0.3) 0%, transparent 60%)
-        `,
-        borderRadius: '16px',
-        padding: '2rem',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-      }}
-    >
-      {/* Background stars */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          variants={starVariants}
-          animate="animate"
-          style={{
-            position: 'absolute',
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-            width: '120px',
-            height: '120px',
-            background: `
-              radial-gradient(circle at center,
-                rgba(255,215,0,0.3) 0%,
-                rgba(255,215,0,0.1) 30%,
-                transparent 70%
-              ),
-              radial-gradient(circle at center,
-                rgba(255,255,255,0.2) 0%,
-                transparent 60%
-              )
-            `,
-            filter: 'blur(4px)',
-            transform: `rotate(${Math.random() * 360}deg)`,
-            transformOrigin: 'center',
-            pointerEvents: 'none',
-            zIndex: 0,
-            clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-          }}
-        />
-      ))}
-
-      {/* Main content grid */}
-      <Grid
+    <FullScreenWrapper>
+      <Paper
+        data-testid="versus-screen"
         style={{
-          width: '100%',
-          maxWidth: '1400px',
-          margin: '0 auto',
           position: 'relative',
-          zIndex: 1,
+          width: '100%',
+          height: '100%',
+          background: `
+            linear-gradient(135deg, #1a237e 0%, #311b92 40%, #4a148c 100%),
+            radial-gradient(circle at 50% 50%, rgba(103, 58, 183, 0.3) 0%, transparent 60%)
+          `,
+          borderRadius: '16px',
+          padding: '2rem',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
         }}
       >
-        {/* Left player */}
-        <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {renderPlayerCard(participants[0], true)}
-        </Grid.Col>
-
-        {/* VS text */}
-        <Grid.Col span={2} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Background stars */}
+        {[...Array(6)].map((_, i) => (
           <motion.div
-            variants={vsVariants}
-            initial="initial"
+            key={i}
+            variants={starVariants}
             animate="animate"
             style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
+              position: 'absolute',
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              width: '120px',
+              height: '120px',
+              background: `
+                radial-gradient(circle at center,
+                  rgba(255,215,0,0.3) 0%,
+                  rgba(255,215,0,0.1) 30%,
+                  transparent 70%
+                ),
+                radial-gradient(circle at center,
+                  rgba(255,255,255,0.2) 0%,
+                  transparent 60%
+                )
+              `,
+              filter: 'blur(4px)',
+              transform: `rotate(${Math.random() * 360}deg)`,
+              transformOrigin: 'center',
+              pointerEvents: 'none',
+              zIndex: 0,
+              clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
             }}
-          >
-            <Text
-              fw={900}
+          />
+        ))}
+
+        {/* Main content grid */}
+        <Grid
+          style={{
+            width: '100%',
+            maxWidth: '1400px',
+            margin: '0 auto',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {/* Left player */}
+          <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {renderPlayerCard(participants[0], true)}
+          </Grid.Col>
+
+          {/* VS text */}
+          <Grid.Col span={2} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div
+              variants={vsVariants}
+              initial="initial"
+              animate="animate"
               style={{
-                fontSize: '6rem',
-                color: '#FFD700',
-                textShadow:
-                  '0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.4), 0 0 120px rgba(255,215,0,0.2)',
-                letterSpacing: '8px',
-                lineHeight: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
               }}
             >
-              VS
-            </Text>
-          </motion.div>
-        </Grid.Col>
+              <Text
+                fw={900}
+                style={{
+                  fontSize: 'clamp(3rem, 8vw, 6rem)',
+                  color: '#FFD700',
+                  textShadow:
+                    '0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.4), 0 0 120px rgba(255,215,0,0.2)',
+                  letterSpacing: '8px',
+                  lineHeight: 1,
+                }}
+              >
+                VS
+              </Text>
+            </motion.div>
+          </Grid.Col>
 
-        {/* Right player */}
-        <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-start' }}>
-          {renderPlayerCard(participants[1], false)}
-        </Grid.Col>
-      </Grid>
-    </Box>
+          {/* Right player */}
+          <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            {renderPlayerCard(participants[1], false)}
+          </Grid.Col>
+        </Grid>
+      </Paper>
+    </FullScreenWrapper>
   );
 };

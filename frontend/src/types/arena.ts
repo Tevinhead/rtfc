@@ -19,16 +19,19 @@ export interface ArenaSession {
 
 export interface ArenaMatch {
   id: string;
+  arena_id?: string;
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;
   player1_id: string;
   player2_id: string;
-  winner_ids: string[];
+  winner_ids?: string[];
   player1_elo_before: number;
   player2_elo_before: number;
-  player1_elo_after: number | null;
-  player2_elo_after: number | null;
+  player1_elo_after?: number;
+  player2_elo_after?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export enum ArenaStep {

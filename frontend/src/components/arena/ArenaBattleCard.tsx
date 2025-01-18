@@ -34,15 +34,37 @@ export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
   canPickWinner,
 }) => {
   return (
-    <Stack style={{ width: '100%', maxWidth: '95%', margin: '0 auto' }} gap="md">
+    <Stack
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        overflow: 'hidden',
+        padding: 0
+      }}
+      gap="xs"
+    >
       <BattleProgress
         roundsCompleted={roundsCompleted}
         totalRounds={totalRounds}
       />
 
-      <FlashcardDisplay flashcard={flashcard} />
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        width: '100%',
+        padding: '1rem'
+      }}>
+        <FlashcardDisplay flashcard={flashcard} />
+      </div>
 
-      <Group justify="apart" mb="xl">
+      <Group justify="apart" mb="xs">
         <PlayerProfile
           player={player1}
           elo={player1ELO}

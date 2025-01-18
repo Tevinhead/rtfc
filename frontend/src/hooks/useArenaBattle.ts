@@ -57,12 +57,23 @@ export const useArenaBattle = () => {
     if (isLoading) return; // Prevent double submission
     setIsLoading(true);
     try {
-      const result = await setArenaMatchWinner(winnerIds);
-      const { arena_session: updatedSession } = result;
+      await setArenaMatchWinner(winnerIds);
+      setArenaStep(ArenaStep.ROUND_RESULT);
+    } catch (error) {
+      console.error('Failed to process winner:', error);
+      // Don't throw, just log the error and return
+      return;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // If session is completed or all rounds are done, get final results
-      if (updatedSession.status === 'completed' || 
-          updatedSession.rounds_completed === updatedSession.num_rounds) {
+  const handleNextRound = async () => {
+    if (!currentArenaSession) return;
+    setIsLoading(true);
+    try {
+      // If we've done all rounds, show final result
+      if (currentArenaSession.rounds_completed >= currentArenaSession.num_rounds) {
         await getArenaResults();
         setArenaStep(ArenaStep.FINAL_RESULT);
         return;
@@ -78,9 +89,7 @@ export const useArenaBattle = () => {
       setCurrentFlashcard(flashcard);
       setArenaStep(ArenaStep.VERSUS);
     } catch (error) {
-      console.error('Failed to process winner:', error);
-      // Don't throw, just log the error and return
-      return;
+      console.error('Failed to process next round:', error);
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +112,7 @@ export const useArenaBattle = () => {
     startBattle,
     handleVersusReady,
     handleSelectWinner,
+    handleNextRound,
     resetBattle,
     setArenaStep
   };

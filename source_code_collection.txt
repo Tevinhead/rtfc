@@ -1646,7 +1646,7 @@ async def set_match_winner(
         )
     }
 
-@router.get("/{arena_id}/results", response_model=dict[str, List[StudentStatsResponse]])
+@router.get("/{arena_id}/results", response_model=dict[str, dict[str, List[StudentStatsResponse]]])
 async def get_arena_results(
     arena_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -1669,7 +1669,7 @@ async def get_arena_results(
     stats = await arena_stats_service.calculate_arena_stats(
         db, arena_id, participant_students
     )
-    return {"data": stats}
+    return {"data": {"rankings": stats}}
 
 
 
@@ -3953,22 +3953,18 @@ File: frontend\src\components\arena\ArenaBattle.tsx
 
 import React, { useCallback } from 'react';
 import { Box } from '@mantine/core';
-import { ArenaStep } from '../../types/arena';
+import { ArenaStep, ArenaMatch } from '../../types/arena';
 import type { Student, Flashcard } from '../../types';
 import { useArenaBattleSounds } from '../../hooks/useArenaBattleSounds';
 import { VersusScreenWrapper } from './screens/VersusScreenWrapper';
 import { BattleScreen } from './screens/BattleScreen';
 import { FinalResultScreen } from './screens/FinalResultScreen';
+import { RoundResultScreen } from './screens/RoundResultScreen';
 
 interface ArenaBattleProps {
   step: ArenaStep;
   currentFlashcard: Flashcard | null;
-  currentMatch: {
-    player1_id: string;
-    player2_id: string;
-    player1_elo_before: number;
-    player2_elo_before: number;
-  } | null;
+  currentMatch: ArenaMatch | null;
   arenaSession: {
     rounds_completed: number;
     num_rounds: number;
@@ -3977,6 +3973,7 @@ interface ArenaBattleProps {
   students: Student[];
   onVersusReady: () => void;
   onSelectWinner: (winnerIds: string[]) => void;
+  onNextRound: () => void;
   onReset: () => void;
   isLoading: boolean;
 }
@@ -3989,6 +3986,7 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   students,
   onVersusReady,
   onSelectWinner,
+  onNextRound,
   onReset,
   isLoading,
 }) => {
@@ -4002,7 +4000,16 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   }, [onVersusReady]);
 
   return (
-    <Box data-testid="arena-battle" style={{ width: '100%', position: 'relative' }}>
+    <Box
+      data-testid="arena-battle"
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {step === ArenaStep.VERSUS && (
         <VersusScreenWrapper
           currentMatch={currentMatch}
@@ -4025,6 +4032,15 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
         />
       )}
       
+      {step === ArenaStep.ROUND_RESULT && currentMatch && (
+        <RoundResultScreen
+          currentMatch={currentMatch}
+          students={students}
+          onNextRound={onNextRound}
+          onReset={onReset}
+        />
+      )}
+
       {step === ArenaStep.FINAL_RESULT && (
         <FinalResultScreen
           arenaSession={arenaSession}
@@ -4077,15 +4093,37 @@ export const ArenaBattleCard: React.FC<ArenaBattleCardProps> = ({
   canPickWinner,
 }) => {
   return (
-    <Stack style={{ width: '100%', maxWidth: '95%', margin: '0 auto' }} gap="md">
+    <Stack
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        overflow: 'hidden',
+        padding: 0
+      }}
+      gap="xs"
+    >
       <BattleProgress
         roundsCompleted={roundsCompleted}
         totalRounds={totalRounds}
       />
 
-      <FlashcardDisplay flashcard={flashcard} />
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        width: '100%',
+        padding: '1rem'
+      }}>
+        <FlashcardDisplay flashcard={flashcard} />
+      </div>
 
-      <Group justify="apart" mb="xl">
+      <Group justify="apart" mb="xs">
         <PlayerProfile
           player={player1}
           elo={player1ELO}
@@ -4117,7 +4155,7 @@ File: frontend\src\components\arena\ArenaResultScreen.tsx
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Card, Text, Stack, Button, Group, Badge, Grid, Table } from '@mantine/core';
+import { Card, Text, Stack, Button, Group, Badge, Grid, Table, Avatar } from '@mantine/core';
 import { IconTrophy, IconArrowUp, IconArrowDown, IconConfetti } from '@tabler/icons-react';
 
 interface StudentStats {
@@ -4128,6 +4166,7 @@ interface StudentStats {
   losses: number;
   fights_played: number;
   elo_change: number;
+  avatar_url?: string;
 }
 
 interface ArenaResultScreenProps {
@@ -4172,9 +4211,11 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
       }}
       style={{
         width: '100%',
-        maxWidth: '95%',
+        height: '100%',
         margin: '0 auto',
-        padding: '2rem',
+        padding: 'min(2vh, 2rem)',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
       <Card
@@ -4248,20 +4289,33 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
                 >
                   <Stack align="center" gap="md">
                     <RankBadge rank={index + 1} />
-                    <Text size="xl" fw={700}>
+                    <Avatar
+                      src={student.avatar_url}
+                      alt={student.name}
+                      size={100}
+                      radius="xl"
+                      style={{
+                        border: '3px solid var(--mantine-color-blue-5)',
+                        boxShadow: '0 0 15px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      {!student.avatar_url && student.name ? student.name.charAt(0) : ''}
+                    </Avatar>
+                    <Text size="xl" fw={700} c="dark" style={{ fontSize: '1.8rem' }}>
                       {student.name}
                     </Text>
-                    <Badge size="lg" variant="filled" color="blue">
+                    <Badge size="xl" variant="filled" color="blue" style={{ fontSize: '1.2rem' }}>
                       {student.elo_rating} ELO
                     </Badge>
                     <Group>
-                      <Badge color="green">Wins: {student.wins}</Badge>
-                      <Badge color="red">Losses: {student.losses}</Badge>
+                      <Badge size="lg" color="green" style={{ fontSize: '1.1rem' }}>Wins: {student.wins}</Badge>
+                      <Badge size="lg" color="red" style={{ fontSize: '1.1rem' }}>Losses: {student.losses}</Badge>
                     </Group>
                     <Text
-                      size="lg"
-                      c={student.elo_change >= 0 ? 'green' : 'red'}
+                      size="xl"
+                      c={student.elo_change >= 0 ? 'dark' : 'dark'}
                       fw={700}
+                      style={{ fontSize: '1.4rem' }}
                     >
                       {student.elo_change > 0 ? '+' : ''}
                       {Math.round(student.elo_change)} ELO
@@ -4280,18 +4334,18 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
             withBorder
             style={{ width: '100%', background: 'rgba(255,255,255,0.9)' }}
           >
-            <Text size="lg" fw={700} mb="md">
+            <Text size="xl" fw={800} mb="md" c="dark" style={{ fontSize: '1.8rem' }}>
               Final Rankings
             </Text>
             <Table striped highlightOnHover>
               <thead>
                 <tr>
-                  <th>Rank</th>
-                  <th>Name</th>
-                  <th>W/L</th>
-                  <th>Fights</th>
-                  <th>Final ELO</th>
-                  <th>ELO Change</th>
+                  <th><Text size="lg" fw={700} c="dark">Rank</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">Name</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">W/L</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">Fights</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">Final ELO</Text></th>
+                  <th><Text size="lg" fw={700} c="dark">ELO Change</Text></th>
                 </tr>
               </thead>
               <tbody>
@@ -4302,16 +4356,28 @@ export const ArenaResultScreen: React.FC<ArenaResultScreenProps> = ({
                       <td>
                         <RankBadge rank={index + 1} />
                       </td>
-                      <td>{student.name}</td>
                       <td>
-                        <Group gap="xs">
-                          <Text c="green">{student.wins}</Text>
-                          <Text>/</Text>
-                          <Text c="red">{student.losses}</Text>
+                        <Group gap="sm">
+                          <Avatar
+                            src={student.avatar_url}
+                            alt={student.name}
+                            size="md"
+                            radius="xl"
+                          >
+                            {!student.avatar_url && student.name ? student.name.charAt(0) : ''}
+                          </Avatar>
+                          <Text size="lg" fw={500} c="dark">{student.name}</Text>
                         </Group>
                       </td>
-                      <td>{student.fights_played}</td>
-                      <td>{student.elo_rating}</td>
+                      <td>
+                        <Group gap="xs">
+                          <Text size="lg" fw={600} c="dark">{student.wins}</Text>
+                          <Text size="lg" fw={500} c="dark">/</Text>
+                          <Text size="lg" fw={600} c="dark">{student.losses}</Text>
+                        </Group>
+                      </td>
+                      <td><Text size="lg" fw={500} c="dark">{student.fights_played}</Text></td>
+                      <td><Text size="lg" fw={500} c="dark">{student.elo_rating}</Text></td>
                       <td>
                         <Group gap="xs">
                           {isPositive ? (
@@ -4360,7 +4426,7 @@ File: frontend\src\components\arena\ArenaSetup.tsx
 ================================================================================
 
 import React, { useCallback, useState, useEffect } from 'react';
-import { Stack, Box, Paper } from '@mantine/core';
+import { Stack, Box, Paper, MantineTheme } from '@mantine/core';
 import { useArenaSetup } from '../../hooks/useArenaSetup';
 import { useStudentStore } from '../../stores';
 import { containerStyles, paperStyles } from './setup/styles';
@@ -4425,8 +4491,19 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
     <Stack
       gap="xl"
       data-testid="arena-setup"
-      p="xl"
-      styles={containerStyles}
+      p={{ base: 'md', sm: 'xl' }}
+      maw="100%"
+      w="100%"
+      mx="auto"
+      styles={(theme: MantineTheme) => ({
+        root: {
+          ...containerStyles(theme).root,
+          maxWidth: '1400px',
+          width: '100%',
+          margin: '0 auto',
+          padding: theme.spacing.xl
+        }
+      })}
     >
       <Box
         style={{
@@ -4444,7 +4521,17 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
         <ArenaHeader />
       </Stack>
 
-      <Paper p="xl" radius="md" styles={paperStyles}>
+      <Paper
+        p={{ base: 'md', sm: 'xl' }}
+        radius="md"
+        styles={(theme: MantineTheme) => ({
+          root: {
+            ...paperStyles(theme).root,
+            width: '100%',
+            maxWidth: '100%'
+          }
+        })}
+      >
         <Stack gap="xl">
           <ArenaPackSelect
             packSelectData={packSelectData}
@@ -5262,10 +5349,11 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 File: frontend\src\components\arena\VersusScreen.tsx
 ================================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Text, Avatar, Grid, Box } from '@mantine/core';
+import { Text, Avatar, Grid, Box, Paper, MantineTheme } from '@mantine/core';
 import { MatchParticipant } from '../../types';
+import { FullScreenWrapper } from './screens/FullScreenWrapper';
 
 interface VersusScreenProps {
   participants?: MatchParticipant[];
@@ -5340,30 +5428,25 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
           maxWidth: '400px',
         }}
       >
-        <Box
+        <Paper
+          p="xl"
+          radius="lg"
           style={{
-            padding: '2rem',
-            borderRadius: '24px',
             background: 'rgba(255, 255, 255, 0.07)',
-            boxShadow: '0 16px 50px rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(12px)',
             textAlign: 'center',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '1.5rem',
+            gap: '1rem',
             border: '2px solid rgba(255, 255, 255, 0.15)',
             transition: 'all 0.3s ease',
             transform: 'translateY(0)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-8px)';
-            e.currentTarget.style.boxShadow = '0 20px 60px rgba(0, 0, 0, 0.6)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 16px 50px rgba(0, 0, 0, 0.5)';
+            ':hover': {
+              transform: 'translateY(-8px)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
+            }
           }}
         >
           <Avatar
@@ -5389,7 +5472,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
               textShadow: '0 2px 4px rgba(0,0,0,0.4)',
               textAlign: 'center',
               width: '100%',
-              fontSize: 'clamp(24px, 4vw, 36px)',
+              fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
               letterSpacing: '0.5px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -5401,7 +5484,7 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
 
           <Text
             style={{
-              fontSize: '2rem',
+              fontSize: 'clamp(1.25rem, 3vw, 2rem)',
               fontWeight: 700,
               color: '#FFD700',
               textShadow: '0 2px 4px rgba(0,0,0,0.5), 0 0 30px rgba(255,215,0,0.4)',
@@ -5410,115 +5493,115 @@ export const VersusScreen: React.FC<VersusScreenProps> = ({
           >
             {participant.elo_before || 1000} ELO
           </Text>
-        </Box>
+        </Paper>
       </motion.div>
     );
   };
 
   return (
-    <Box
-      data-testid="versus-screen"
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        minHeight: '600px',
-        maxHeight: '100vh',
-        background: `
-          linear-gradient(135deg, #1a237e 0%, #311b92 40%, #4a148c 100%),
-          radial-gradient(circle at 50% 50%, rgba(103, 58, 183, 0.3) 0%, transparent 60%)
-        `,
-        borderRadius: '16px',
-        padding: '2rem',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-      }}
-    >
-      {/* Background stars */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          variants={starVariants}
-          animate="animate"
-          style={{
-            position: 'absolute',
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-            width: '120px',
-            height: '120px',
-            background: `
-              radial-gradient(circle at center,
-                rgba(255,215,0,0.3) 0%,
-                rgba(255,215,0,0.1) 30%,
-                transparent 70%
-              ),
-              radial-gradient(circle at center,
-                rgba(255,255,255,0.2) 0%,
-                transparent 60%
-              )
-            `,
-            filter: 'blur(4px)',
-            transform: `rotate(${Math.random() * 360}deg)`,
-            transformOrigin: 'center',
-            pointerEvents: 'none',
-            zIndex: 0,
-            clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-          }}
-        />
-      ))}
-
-      {/* Main content grid */}
-      <Grid
+    <FullScreenWrapper>
+      <Paper
+        data-testid="versus-screen"
         style={{
-          width: '100%',
-          maxWidth: '1400px',
-          margin: '0 auto',
           position: 'relative',
-          zIndex: 1,
+          width: '100%',
+          height: '100%',
+          background: `
+            linear-gradient(135deg, #1a237e 0%, #311b92 40%, #4a148c 100%),
+            radial-gradient(circle at 50% 50%, rgba(103, 58, 183, 0.3) 0%, transparent 60%)
+          `,
+          borderRadius: '16px',
+          padding: '2rem',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
         }}
       >
-        {/* Left player */}
-        <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {renderPlayerCard(participants[0], true)}
-        </Grid.Col>
-
-        {/* VS text */}
-        <Grid.Col span={2} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Background stars */}
+        {[...Array(6)].map((_, i) => (
           <motion.div
-            variants={vsVariants}
-            initial="initial"
+            key={i}
+            variants={starVariants}
             animate="animate"
             style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
+              position: 'absolute',
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              width: '120px',
+              height: '120px',
+              background: `
+                radial-gradient(circle at center,
+                  rgba(255,215,0,0.3) 0%,
+                  rgba(255,215,0,0.1) 30%,
+                  transparent 70%
+                ),
+                radial-gradient(circle at center,
+                  rgba(255,255,255,0.2) 0%,
+                  transparent 60%
+                )
+              `,
+              filter: 'blur(4px)',
+              transform: `rotate(${Math.random() * 360}deg)`,
+              transformOrigin: 'center',
+              pointerEvents: 'none',
+              zIndex: 0,
+              clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
             }}
-          >
-            <Text
-              fw={900}
+          />
+        ))}
+
+        {/* Main content grid */}
+        <Grid
+          style={{
+            width: '100%',
+            maxWidth: '1400px',
+            margin: '0 auto',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {/* Left player */}
+          <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {renderPlayerCard(participants[0], true)}
+          </Grid.Col>
+
+          {/* VS text */}
+          <Grid.Col span={2} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div
+              variants={vsVariants}
+              initial="initial"
+              animate="animate"
               style={{
-                fontSize: '6rem',
-                color: '#FFD700',
-                textShadow:
-                  '0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.4), 0 0 120px rgba(255,215,0,0.2)',
-                letterSpacing: '8px',
-                lineHeight: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
               }}
             >
-              VS
-            </Text>
-          </motion.div>
-        </Grid.Col>
+              <Text
+                fw={900}
+                style={{
+                  fontSize: 'clamp(3rem, 8vw, 6rem)',
+                  color: '#FFD700',
+                  textShadow:
+                    '0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.4), 0 0 120px rgba(255,215,0,0.2)',
+                  letterSpacing: '8px',
+                  lineHeight: 1,
+                }}
+              >
+                VS
+              </Text>
+            </motion.div>
+          </Grid.Col>
 
-        {/* Right player */}
-        <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-start' }}>
-          {renderPlayerCard(participants[1], false)}
-        </Grid.Col>
-      </Grid>
-    </Box>
+          {/* Right player */}
+          <Grid.Col span={5} style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            {renderPlayerCard(participants[1], false)}
+          </Grid.Col>
+        </Grid>
+      </Paper>
+    </FullScreenWrapper>
   );
 };
 
@@ -5541,15 +5624,14 @@ export const BattleProgress: React.FC<BattleProgressProps> = ({
   totalRounds,
 }) => {
   return (
-    <Card shadow="sm" p="md" radius="md" withBorder>
-      <Text size="lg" fw={700} ta="center" mb="md">
+    <Card shadow="sm" p="xs" radius="sm" withBorder style={{ background: '#4169E1', color: 'white' }}>
+      <Text size="md" fw={600} ta="center" mb="xs">
         Battle {roundsCompleted + 1} of {totalRounds}
       </Text>
       <Progress
         value={((roundsCompleted + 1) / totalRounds) * 100}
-        size="xl"
+        size="md"
         radius="xl"
-        mb="md"
       />
     </Card>
   );
@@ -5582,10 +5664,10 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
 
   const getFontSize = useCallback((text: string) => {
     const length = text.length;
-    if (length > 200) return '32px';
-    if (length > 100) return '48px';
-    if (length > 50) return '64px';
-    return '96px';
+    if (length > 200) return 'min(7vh, 64px)';
+    if (length > 100) return 'min(9vh, 80px)';
+    if (length > 50) return 'min(11vh, 96px)';
+    return 'min(13vh, 112px)';
   }, []);
 
   const sharedTextStyle = {
@@ -5596,8 +5678,10 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '0.5rem',
+    padding: 'min(2vh, 0.5rem)',
     lineHeight: 1.2,
+    width: '100%',
+    height: '100%'
   };
 
   return (
@@ -5605,11 +5689,11 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
       style={{
         perspective: '1000px',
         width: '100%',
-        maxHeight: '420px',
-        height: 'auto',
-        minHeight: '300px',
+        height: '100%',
         position: 'relative',
-        padding: '1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
     >
       <motion.div
@@ -5632,35 +5716,52 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
           }}
         >
           <Card
-            shadow="lg"
-            p="md"
-            radius="md"
+            shadow="sm"
+            p={{ base: 'xs', sm: 'md' }}
+            radius="sm"
             withBorder
             style={{
               width: '100%',
               height: '100%',
-              background: 'linear-gradient(135deg, #FEE140 0%, #FA709A 100%)',
-              color: '#333',
+              background: 'linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%)',
+              color: '#fff',
               boxSizing: 'border-box',
+              cursor: 'pointer',
+              position: 'relative',
+              borderRadius: 'min(2vh, 12px)',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
             }}
+            onClick={handleFlip}
           >
-            <Stack gap="xs" style={{ height: '100%' }}>
-              <Text
-                size={getFontSize(flashcard.question)}
-                fw={800}
-                ta="center"
-                style={sharedTextStyle}
+            <Text
+              size={getFontSize(flashcard.question)}
+              fw={700}
+              ta="center"
+              style={{
+                ...sharedTextStyle,
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }}
+            >
+              {flashcard.question}
+            </Text>
+            <Tooltip label="Flip to see Answer" withArrow position="bottom">
+              <ActionIcon
+                variant="subtle"
+                color="gray.0"
+                style={{
+                  position: 'absolute',
+                  bottom: '5px',
+                  right: '5px',
+                  opacity: 0.7,
+                }}
               >
-                {flashcard.question}
-              </Text>
-              <Group justify="center">
-                <Tooltip label="Flip to see Answer" withArrow>
-                  <ActionIcon variant="light" onClick={handleFlip}>
-                    <IconRefresh size={20} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Stack>
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
           </Card>
         </motion.div>
 
@@ -5675,35 +5776,52 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
           }}
         >
           <Card
-            shadow="lg"
-            p="xl"
-            radius="md"
+            shadow="sm"
+            p={{ base: 'xs', sm: 'md' }}
+            radius="sm"
             withBorder
             style={{
               width: '100%',
               height: '100%',
-              background: 'linear-gradient(135deg, #A1FFCE 0%, #FAFFD1 100%)',
-              color: '#333',
+              background: 'linear-gradient(135deg, #66bb6a 0%, #4CAF50 100%)',
+              color: '#fff',
               boxSizing: 'border-box',
+              cursor: 'pointer',
+              position: 'relative',
+              borderRadius: 'min(2vh, 12px)',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
             }}
+            onClick={handleFlip}
           >
-            <Stack gap="md" style={{ height: '100%' }}>
-              <Text
-                size={getFontSize(flashcard.answer)}
-                fw={800}
-                ta="center"
-                style={sharedTextStyle}
+            <Text
+              size={getFontSize(flashcard.answer)}
+              fw={700}
+              ta="center"
+              style={{
+                ...sharedTextStyle,
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }}
+            >
+              {flashcard.answer}
+            </Text>
+            <Tooltip label="Flip to see Question" withArrow position="bottom">
+              <ActionIcon
+                variant="subtle"
+                color="gray.0"
+                style={{
+                  position: 'absolute',
+                  bottom: '5px',
+                  right: '5px',
+                  opacity: 0.7,
+                }}
               >
-                {flashcard.answer}
-              </Text>
-              <Group justify="center">
-                <Tooltip label="Flip to see Question" withArrow>
-                  <ActionIcon variant="light" onClick={handleFlip}>
-                    <IconRefresh size={20} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Stack>
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
           </Card>
         </motion.div>
       </motion.div>
@@ -5745,63 +5863,23 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({
   colorGradient,
 }) => {
   return (
-    <Stack align="center" gap="xs" style={{ flex: 1 }}>
-      <Box
+    <Stack align="center" gap={4} style={{ flex: 1 }}>
+      <Avatar
+        src={player.avatar_url || undefined}
+        alt={player.name}
+        radius="xl"
+        size={48}
         style={{
-          position: 'relative',
-          padding: '4px',
-          borderRadius: '50%',
-          background: `linear-gradient(45deg, ${colorGradient.from}, ${colorGradient.to})`,
-          boxShadow: `0 0 10px rgba(${colorGradient.from === '#4dabf7' ? '77, 171, 247' : '255, 107, 107'}, 0.3)`,
+          border: `2px solid ${colorGradient.from}`,
         }}
       >
-        <motion.div
-          animate={{
-            scale: [1, 1.05, 1],
-            rotate: [0, 2, -2, 0],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            repeatType: 'reverse',
-          }}
-        >
-          <Avatar
-            src={player.avatar_url || undefined}
-            alt={player.name}
-            radius="xl"
-            size={64}
-            style={{
-              border: '2px solid #fff',
-              boxShadow: `0 0 10px rgba(${colorGradient.from === '#4dabf7' ? '77, 171, 247' : '255, 107, 107'}, 0.2)`,
-            }}
-          >
-            {(!player.avatar_url && player.name) ? player.name.charAt(0) : ''}
-          </Avatar>
-        </motion.div>
-      </Box>
-      <Text
-        size="xl"
-        fw={700}
-        style={{
-          background: `linear-gradient(45deg, ${colorGradient.from}, ${colorGradient.to})`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}
-      >
+        {(!player.avatar_url && player.name) ? player.name.charAt(0) : ''}
+      </Avatar>
+      <Text size="md" fw={600}>
         {player.name}
       </Text>
-      <Badge
-        size="lg"
-        variant="gradient"
-        gradient={colorGradient}
-      >
-        <Text size="md" fw={600}>
-          {elo} ELO
-        </Text>
-      </Badge>
-      <Text size="sm" color="dimmed">
-        W: {player.wins} L: {player.losses}
+      <Text size="sm" c="dimmed">
+        ELO: {elo} • W/L: {player.wins}/{player.losses}
       </Text>
     </Stack>
   );
@@ -5836,69 +5914,27 @@ export const WinnerSelection: React.FC<WinnerSelectionProps> = ({
   canPickWinner,
 }) => {
   return (
-    <Card shadow="sm" p="md" radius="md" withBorder>
-      <Group justify="center" mb="xl">
-        <motion.div
-          animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, 5, -5, 0],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            repeatType: 'reverse',
-          }}
-        >
-          <Badge
-            size="xl"
-            variant="gradient"
-            gradient={{ from: 'orange', to: 'red' }}
-            style={{
-              padding: '1.2rem',
-              boxShadow: '0 0 15px rgba(255, 107, 107, 0.3)',
-            }}
-          >
-            <IconSword size={28} />
-          </Badge>
-        </motion.div>
-      </Group>
-
-      <Text
-        ta="center"
-        fw={700}
-        mb="md"
-        size="xl"
-        style={{
-          background: 'linear-gradient(45deg, #ff6b6b, #4dabf7)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 20px rgba(0,0,0,0.1)',
-        }}
-      >
-        Pick the Winner
-      </Text>
-      <Group grow>
+    <Card shadow="sm" p="xs" radius="sm" withBorder>
+      <Group grow gap="xs">
         <Button
-          variant="gradient"
-          gradient={{ from: '#4dabf7', to: '#228be6' }}
+          variant="filled"
+          color="pink"
           data-testid={`select-winner-${player1.id}`}
           onClick={() => onSelectWinner([player1.id])}
           disabled={!canPickWinner || isLoading}
-          size="md"
-          leftSection={<IconTrophy size={20} />}
+          size="sm"
         >
-          {player1.name}
+          Winner
         </Button>
         <Button
-          variant="gradient"
-          gradient={{ from: '#ff6b6b', to: '#fa5252' }}
+          variant="filled"
+          color="pink"
           data-testid={`select-winner-${player2.id}`}
           onClick={() => onSelectWinner([player2.id])}
           disabled={!canPickWinner || isLoading}
-          size="lg"
-          leftSection={<IconTrophy size={20} />}
+          size="sm"
         >
-          {player2.name}
+          Winner
         </Button>
       </Group>
     </Card>
@@ -5912,12 +5948,13 @@ File: frontend\src\components\arena\screens\BattleScreen.tsx
 ================================================================================
 
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Stack, Paper } from '@mantine/core';
 import { ErrorAlert } from '../../shared/ErrorAlert';
 import { ErrorBoundary } from '../../shared/ErrorBoundary';
 import { ArenaBattleCard } from '../ArenaBattleCard';
 import { Student, Flashcard } from '../../../types';
 import { findMatchPlayers } from '../../../utils/playerUtils';
+import { FullScreenWrapper } from './FullScreenWrapper';
 
 interface BattleScreenProps {
   currentMatch: {
@@ -5949,7 +5986,22 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   canPickWinner,
 }) => {
   if (!currentMatch || !currentFlashcard) {
-    return <ErrorAlert error="Battle data not found" onRetry={onReset} />;
+    return (
+      <FullScreenWrapper>
+        <Paper
+          p="xl"
+          radius="lg"
+          style={{
+            background: 'rgba(255, 255, 255, 0.07)',
+            backdropFilter: 'blur(12px)',
+            maxWidth: '600px',
+            width: '100%',
+          }}
+        >
+          <ErrorAlert error="Battle data not found" onRetry={onReset} />
+        </Paper>
+      </FullScreenWrapper>
+    );
   }
 
   const playersResult = findMatchPlayers(
@@ -5959,27 +6011,71 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   );
 
   if (playersResult instanceof Error) {
-    return <ErrorAlert error={playersResult.message} onRetry={onReset} />;
+    return (
+      <FullScreenWrapper>
+        <Paper
+          p="xl"
+          radius="lg"
+          style={{
+            background: 'rgba(255, 255, 255, 0.07)',
+            backdropFilter: 'blur(12px)',
+            maxWidth: '600px',
+            width: '100%',
+          }}
+        >
+          <ErrorAlert error={playersResult.message} onRetry={onReset} />
+        </Paper>
+      </FullScreenWrapper>
+    );
   }
 
   const { player1, player2 } = playersResult;
 
   return (
-    <ErrorBoundary fallback={<ErrorAlert error="Failed to display battle" onRetry={onReset} />}>
-      <Stack align="center" gap="xl" style={{ width: '100%', minHeight: '70vh' }}>
-        <ArenaBattleCard
-          flashcard={currentFlashcard}
-          player1={player1}
-          player2={player2}
-          roundsCompleted={arenaSession?.rounds_completed || 0}
-          totalRounds={arenaSession?.num_rounds || 0}
-          onSelectWinner={onSelectWinner}
-          player1ELO={currentMatch.player1_elo_before}
-          player2ELO={currentMatch.player2_elo_before}
-          isLoading={isLoading}
-          canPickWinner={canPickWinner}
-        />
-      </Stack>
+    <ErrorBoundary 
+      fallback={
+        <FullScreenWrapper>
+          <Paper
+            p="xl"
+            radius="lg"
+            style={{
+              background: 'rgba(255, 255, 255, 0.07)',
+              backdropFilter: 'blur(12px)',
+              maxWidth: '600px',
+              width: '100%',
+            }}
+          >
+            <ErrorAlert error="Failed to display battle" onRetry={onReset} />
+          </Paper>
+        </FullScreenWrapper>
+      }
+    >
+      <FullScreenWrapper>
+        <Stack
+          align="center"
+          justify="center"
+          style={{
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            padding: 0,
+            overflow: 'hidden'
+          }}
+        >
+          <ArenaBattleCard
+            flashcard={currentFlashcard}
+            player1={player1}
+            player2={player2}
+            roundsCompleted={arenaSession?.rounds_completed || 0}
+            totalRounds={arenaSession?.num_rounds || 0}
+            onSelectWinner={onSelectWinner}
+            player1ELO={currentMatch.player1_elo_before}
+            player2ELO={currentMatch.player2_elo_before}
+            isLoading={isLoading}
+            canPickWinner={canPickWinner}
+          />
+        </Stack>
+      </FullScreenWrapper>
     </ErrorBoundary>
   );
 };
@@ -6019,6 +6115,497 @@ export const FinalResultScreen: React.FC<FinalResultScreenProps> = ({
         />
       </Stack>
     </ErrorBoundary>
+  );
+};
+
+
+================================================================================
+File: frontend\src\components\arena\screens\FullScreenWrapper.tsx
+================================================================================
+
+import React, { ReactNode } from 'react';
+import { Stack, MantineTheme } from '@mantine/core';
+
+interface FullScreenWrapperProps {
+  children: ReactNode;
+}
+
+export function FullScreenWrapper({ children }: FullScreenWrapperProps) {
+  return (
+    <Stack
+      justify="center"
+      align="center"
+      styles={(theme: MantineTheme) => ({
+        root: {
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          gap: theme.spacing.md,
+          width: '100%',
+          height: '100%',
+          padding: theme.spacing.lg,
+        },
+      })}
+    >
+      {children}
+    </Stack>
+  );
+}
+
+
+================================================================================
+File: frontend\src\components\arena\screens\RoundResultScreen.tsx
+================================================================================
+
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Global, css } from '@emotion/react';
+import {
+  Card,
+  Text,
+  Stack,
+  Title,
+  Grid,
+  Group,
+  Avatar,
+  Badge,
+  Button,
+  Box,
+  useMantineTheme,
+  rem,
+} from '@mantine/core';
+import { IconArrowUp, IconArrowDown, IconConfetti, IconCrown } from '@tabler/icons-react';
+import { Student, ArenaMatch } from '../../../types';
+import { achievementsConfig } from '../../../achievements/achievementsConfig';
+import { getStudentAchievements } from '../../../achievements/getStudentAchievements';
+import { FullScreenWrapper } from './FullScreenWrapper';
+
+interface RoundResultScreenProps {
+  currentMatch: ArenaMatch;
+  students: Student[];
+  onNextRound: () => void;
+  onReset: () => void;
+}
+
+export const RoundResultScreen: React.FC<RoundResultScreenProps> = ({
+  currentMatch,
+  students,
+  onNextRound,
+  onReset,
+}) => {
+  const theme = useMantineTheme();
+
+  // Identify each player from the students array
+  const player1 = students.find((s) => s.id === currentMatch.player1_id);
+  const player2 = students.find((s) => s.id === currentMatch.player2_id);
+
+  // Safeguard
+  if (!player1 || !player2) {
+    return (
+      <FullScreenWrapper>
+        <Card
+          p="xl"
+          radius="lg"
+          style={{
+            background: 'rgba(255, 255, 255, 0.07)',
+            backdropFilter: 'blur(12px)',
+            maxWidth: '600px',
+            width: '100%',
+          }}
+        >
+          <Stack align="center" gap="md">
+            <Text c="red">Players not found. Something went wrong.</Text>
+            <Button onClick={onReset}>Return</Button>
+          </Stack>
+        </Card>
+      </FullScreenWrapper>
+    );
+  }
+
+  // ELO changes
+  const p1Change =
+    (currentMatch.player1_elo_after || 0) - currentMatch.player1_elo_before;
+  const p2Change =
+    (currentMatch.player2_elo_after || 0) - currentMatch.player2_elo_before;
+
+  // Who is the winner? Possibly multiple winners
+  const isP1Winner = currentMatch.winner_ids?.includes(player1.id) || false;
+  const isP2Winner = currentMatch.winner_ids?.includes(player2.id) || false;
+
+  // Achievements for each player
+  const p1Unlocked = getStudentAchievements(player1, []);
+  const p2Unlocked = getStudentAchievements(player2, []);
+
+  const p1Achievements = achievementsConfig.filter((ach) =>
+    p1Unlocked.includes(ach.id)
+  );
+  const p2Achievements = achievementsConfig.filter((ach) =>
+    p2Unlocked.includes(ach.id)
+  );
+
+  // Animations
+  const containerVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.4, ease: 'easeOut' },
+    },
+    exit: { opacity: 0, scale: 0.9 },
+  };
+
+  // Shared styling for winner card background
+  const winnerStyle = {
+    background: 'linear-gradient(60deg, var(--mantine-color-yellow-4), var(--mantine-color-orange-4))',
+    color: 'var(--mantine-color-dark-9)',
+    boxShadow: '0 0 30px rgba(255, 215, 0, 0.3)',
+  };
+
+  const loserStyle = {
+    background: 'linear-gradient(60deg, var(--mantine-color-gray-2), var(--mantine-color-gray-3))',
+    color: 'var(--mantine-color-dark-7)',
+    boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)',
+  };
+
+  const getCardStyle = (isWinner: boolean) => (isWinner ? winnerStyle : loserStyle);
+
+  // ELO Change UI
+  const ELOChangeDisplay: React.FC<{ change: number }> = ({ change }) => {
+    const isPositive = change >= 0;
+    return (
+      <Group gap="xs">
+        {isPositive ? (
+          <IconArrowUp size={18} color={theme.colors.green[5]} />
+        ) : (
+          <IconArrowDown size={18} color={theme.colors.red[5]} />
+        )}
+        <Text
+          fw={800}
+          size="xl"
+          c={isPositive ? 'green.3' : 'red.3'}
+          style={{
+            textShadow: isPositive ? '0 0 4px rgba(0,255,0,0.5)' : '0 0 4px rgba(255,0,0,0.5)',
+            background: 'rgba(0,0,0,0.25)',
+            padding: '4px 12px',
+            borderRadius: '6px',
+            fontSize: 'clamp(1.2rem, 3vh, 1.8rem)'
+          }}
+        >
+          {isPositive ? `+${change}` : change}
+        </Text>
+      </Group>
+    );
+  };
+
+  return (
+    <FullScreenWrapper>
+      <Global
+        styles={css`
+          @keyframes glow {
+            from {
+              box-shadow: 0 0 20px rgba(255,215,0,0.4);
+            }
+            to {
+              box-shadow: 0 0 40px rgba(255,215,0,0.7);
+            }
+          }
+        `}
+      />
+      <AnimatePresence mode="sync">
+        <motion.div
+          key="round-result-screen"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+          }}
+        >
+          <Card
+            p={{ base: 'md', sm: 'lg', md: 'xl' }}
+            radius="md"
+            shadow="xl"
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              background: 'linear-gradient(45deg, var(--mantine-color-violet-9), var(--mantine-color-indigo-9))',
+              color: '#fff',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Rotating Confetti Icon in BG */}
+            <motion.div
+              initial={{ rotate: 0 }}
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: 30,
+                repeat: Infinity,
+                ease: 'linear',
+              }}
+              style={{
+                position: 'absolute',
+                top: '-100px',
+                right: '-100px',
+                opacity: 0.2,
+              }}
+            >
+              <IconConfetti size={200} />
+            </motion.div>
+
+            <Stack gap="md" align="center" justify="center" style={{ height: '100%' }}>
+              {/* Title */}
+              <motion.div
+                initial={{ y: -30, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+              >
+                <Title
+                  order={2}
+                  ta="center"
+                  style={{
+                    fontSize: 'clamp(1.5rem, 5vw, 2.25rem)',
+                    textTransform: 'uppercase',
+                    textShadow: '0 2px 15px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  Round Complete!
+                </Title>
+              </motion.div>
+
+              {/* Round Info */}
+              <motion.div
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 100, damping: 15, delay: 0.1 }}
+              >
+                <Text size="md" c="cyan.2" fw={500}>
+                  Rounds Completed: {currentMatch.rounds_completed}/{currentMatch.num_rounds}
+                </Text>
+              </motion.div>
+
+              {/* Participants Grid */}
+              <Grid
+                gutter={{ base: 'md', sm: 'lg', md: 'xl' }}
+                style={{
+                  width: '100%',
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'stretch'
+                }}
+                align="stretch"
+                justify="center"
+              >
+                {[{ player: player1, isWinner: isP1Winner, eloChange: p1Change, achievements: p1Achievements },
+                  { player: player2, isWinner: isP2Winner, eloChange: p2Change, achievements: p2Achievements }]
+                  .map(({ player, isWinner, eloChange, achievements }, index) => (
+                    <Grid.Col
+                      key={player.id}
+                      span={6}
+                      style={{ display: 'flex', justifyContent: 'center' }}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{
+                          scale: 1,
+                          opacity: 1
+                        }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 100,
+                          damping: 15,
+                          delay: 0.2 + index * 0.1
+                        }}
+                        style={{ 
+                          width: '100%', 
+                          maxWidth: 400,
+                          animation: isWinner ? 'glow 1.5s ease-in-out infinite alternate' : undefined
+                        }}
+                      >
+                        <Card
+                          p={{ base: 'md', sm: 'lg', md: 'xl' }}
+                          radius="lg"
+                          withBorder
+                          style={{
+                            ...getCardStyle(isWinner),
+                            position: 'relative',
+                            overflow: 'hidden',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column'
+                          }}
+                        >
+                          <Stack gap="md" align="center" style={{ flex: 1, justifyContent: 'space-around' }}>
+                            {/* Crown for winner */}
+                            {isWinner && (
+                              <Box mb={-20} style={{ position: 'relative', zIndex: 2 }}>
+                                <IconCrown
+                                  size={48}
+                                  style={{
+                                    color: theme.colors.yellow[4],
+                                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                                  }}
+                                />
+                              </Box>
+                            )}
+                            {/* AVATAR + NAME */}
+                            <Avatar
+                              src={player.avatar_url || undefined}
+                              alt={player.name}
+                              size="clamp(80px, 20vh, 160px)"
+                              radius="50%"
+                              style={{
+                                border: `2px solid ${
+                                  isWinner ? theme.colors.yellow[4] : '#fff'
+                                }`,
+                                boxShadow: isWinner
+                                  ? '0 0 10px rgba(255,215,0,0.5)'
+                                  : '0 0 8px rgba(255,255,255,0.2)',
+                              }}
+                            >
+                              {(!player.avatar_url && player.name)
+                                ? player.name.charAt(0)
+                                : ''}
+                            </Avatar>
+
+                            <Title
+                              order={3}
+                              style={{
+                                textAlign: 'center',
+                                fontSize: 'clamp(1.5rem, 4vh, 2.2rem)',
+                                lineHeight: 1.2,
+                                marginTop: '2vh',
+                                marginBottom: '1vh',
+                                fontWeight: 700,
+                                color: isWinner ? 'var(--mantine-color-dark-9)' : 'var(--mantine-color-dark-7)',
+                                textShadow: isWinner ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                                letterSpacing: '0.5px'
+                              }}
+                            >
+                              {player.name}
+                            </Title>
+
+                            {/* Winner / Loser badge */}
+                            {isWinner ? (
+                              <Badge
+                                size="lg"
+                                variant="filled"
+                                color="green"
+                                style={{
+                                  padding: 'clamp(0.8rem, 2vh, 1.2rem) clamp(1.2rem, 3vh, 2rem)',
+                                  fontSize: 'clamp(1.4rem, 3.5vh, 2rem)',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '1px',
+                                  boxShadow: '0 0 20px rgba(0, 255, 0, 0.2)',
+                                  color: 'var(--mantine-color-green-0)'
+                                }}
+                              >
+                                Winner!
+                              </Badge>
+                            ) : (
+                              <Badge
+                                size="lg"
+                                variant="filled"
+                                color="red"
+                                style={{
+                                  padding: 'clamp(0.8rem, 2vh, 1.2rem) clamp(1.2rem, 3vh, 2rem)',
+                                  fontSize: 'clamp(1.4rem, 3.5vh, 2rem)',
+                                  fontWeight: 600,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '1px',
+                                  color: 'var(--mantine-color-red-0)',
+                                  boxShadow: '0 0 20px rgba(255, 0, 0, 0.2)'
+                                }}
+                              >
+                                Defeated
+                              </Badge>
+                            )}
+
+                            {/* ELO Ratings */}
+                            <Group gap="md" mt="2vh">
+                              <Group
+                                style={{
+                                  background: 'rgba(0,0,0,0.15)',
+                                  padding: '0.8rem 1.2rem',
+                                  borderRadius: '12px',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                  backdropFilter: 'blur(4px)'
+                                }}
+                              >
+                                <Text fw={700} style={{
+                                  fontSize: 'clamp(1.1rem, 2.5vh, 1.5rem)',
+                                  color: isWinner ? 'var(--mantine-color-dark-9)' : 'var(--mantine-color-dark-7)'
+                                }}>
+                                  ELO: {player.elo_rating}
+                                </Text>
+                              </Group>
+                              <Box style={{ transform: 'scale(clamp(1.2, 2vh, 1.6))' }}>
+                                <ELOChangeDisplay change={eloChange} />
+                              </Box>
+                            </Group>
+
+                            {/* Achievements */}
+                            {achievements.length > 0 && (
+                              <Stack gap="md" align="center" mt="2vh">
+                                <Text fw={600} style={{ fontSize: 'clamp(1rem, 2.5vh, 1.4rem)' }}>
+                                  Achievements:
+                                </Text>
+                                <Group gap="xs">
+                                  {achievements.map((ach) => (
+                                    <Badge
+                                      key={ach.id}
+                                      size="md"
+                                      color={ach.color}
+                                      variant="filled"
+                                    >
+                                      {ach.title}
+                                    </Badge>
+                                  ))}
+                                </Group>
+                              </Stack>
+                            )}
+                          </Stack>
+                        </Card>
+                      </motion.div>
+                    </Grid.Col>
+                  ))}
+              </Grid>
+
+              {/* Buttons */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5, type: 'spring', stiffness: 100, damping: 15 }}
+              >
+                <Group mt="xl" justify="center">
+                  <Button
+                    variant="gradient"
+                    gradient={{ from: 'cyan.5', to: 'blue.5' }}
+                    size="lg"
+                    onClick={onNextRound}
+                  >
+                    Next Round
+                  </Button>
+                  <Button variant="light" color="gray" size="lg" onClick={onReset}>
+                    Exit Arena
+                  </Button>
+                </Group>
+              </motion.div>
+            </Stack>
+          </Card>
+        </motion.div>
+      </AnimatePresence>
+    </FullScreenWrapper>
   );
 };
 
@@ -8197,11 +8784,12 @@ export function Layout({ children }: LayoutProps) {
   return (
     <Navigation>
       <Container
-        size="xl"
+        fluid
         p={0}
         style={{
           background: 'linear-gradient(165deg, #1A1B1E 0%, #13151A 100%)',
-          minHeight: '100vh'
+          minHeight: '100vh',
+          maxWidth: '100vw'
         }}
       >
         {children}
@@ -8970,16 +9558,19 @@ interface StudentStatsProps {
 }
 
 export const StudentStats = React.memo(function StudentStats({ student }: StudentStatsProps) {
+  // Store retrieval for match history
   const { studentHistory, fetchStudentHistory } = useStudentStore();
   const historyData = useMemo(
     () => studentHistory[student.id] || [],
     [studentHistory, student.id]
   );
 
+  // Fetch match history if not already fetched
   useEffect(() => {
     void fetchStudentHistory(student.id);
   }, [student.id, fetchStudentHistory]);
 
+  // Prepare data for ELO timeline chart
   const eloTimeline = useMemo(() => {
     return historyData.map((mh) => ({
       date: new Date(mh.date).toLocaleDateString(),
@@ -8987,21 +9578,28 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
     }));
   }, [historyData]);
 
+  // Compute display of student's win-rate and record
   const winRateDisplay = useMemo(
     () => `${(student.win_rate * 100).toFixed(1)}%`,
     [student.win_rate]
   );
-
   const recordDisplay = useMemo(
     () => `${student.wins}W - ${student.losses}L`,
     [student.wins, student.losses]
   );
 
-  // Compute unlocked achievements
-  const unlockedAchievements = useMemo(() => {
-    const unlockedIds = getStudentAchievements(student, historyData);
-    return achievementsConfig.filter((ach) => unlockedIds.includes(ach.id));
+  // 1) Figure out which achievements are unlocked
+  const unlockedIds = useMemo(() => {
+    return getStudentAchievements(student, historyData);
   }, [student, historyData]);
+
+  // 2) Build a combined list (locked + unlocked) with an `isUnlocked` flag
+  const allAchievements = useMemo(() => {
+    return achievementsConfig.map((achievement) => ({
+      ...achievement,
+      isUnlocked: unlockedIds.includes(achievement.id),
+    }));
+  }, [unlockedIds]);
 
   return (
     <Stack gap="lg">
@@ -9054,6 +9652,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
         </Text>
       </Group>
 
+      {/* Top Stats (Matches, Win Rate, ELO) */}
       <Grid>
         <Grid.Col span={4}>
           <StatsCard
@@ -9081,42 +9680,60 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
         </Grid.Col>
       </Grid>
 
+      {/* Achievements Section */}
       <Card withBorder radius="md" p="md">
         <Title order={3} mb="md">Achievements</Title>
-        {unlockedAchievements.length === 0 ? (
-          <Text color="dimmed">No achievements yet.</Text>
-        ) : (
-          <Group gap="lg">
-            {unlockedAchievements.map((ach) => (
-              <Card
-                key={ach.id}
-                shadow="md"
-                p="md"
-                radius="md"
-                withBorder
-                style={{
-                  width: 180,
-                  textAlign: 'center',
-                  background: 'rgba(255,255,255,0.05)',
-                }}
+        <Group gap="lg">
+          {/* 
+            3) Always display all achievements. 
+               If isUnlocked = true, show normal style.
+               Else, show a gray/"locked" style.
+          */}
+          {allAchievements.map((ach) => (
+            <Card
+              key={ach.id}
+              shadow="md"
+              p="md"
+              radius="md"
+              withBorder
+              style={{
+                width: 180,
+                textAlign: 'center',
+                background: ach.isUnlocked
+                  ? 'rgba(255,255,255,0.05)'
+                  : 'rgba(255,255,255,0.02)',
+              }}
+            >
+              <Badge
+                color={ach.isUnlocked ? ach.color : 'gray'}
+                variant={ach.isUnlocked ? 'filled' : 'outline'}
+                size="lg"
+                style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
+                leftSection={ach.isUnlocked ? undefined : null}
               >
-                <Badge
-                  color={ach.color}
-                  variant="filled"
-                  size="lg"
-                  style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
-                >
-                  {ach.title}
-                </Badge>
-                <Text size="sm" color="dimmed">
-                  {ach.description}
+                {ach.title}
+              </Badge>
+              <Text
+                size="sm"
+                color={ach.isUnlocked ? 'dimmed' : 'gray'}
+              >
+                {ach.description}
+              </Text>
+              {/* 
+                If not unlocked, let's show a small "Locked" label 
+                or any subtle hint that it's not unlocked yet
+              */}
+              {!ach.isUnlocked && (
+                <Text size="xs" color="dimmed" mt="xs">
+                  Locked
                 </Text>
-              </Card>
-            ))}
-          </Group>
-        )}
+              )}
+            </Card>
+          ))}
+        </Group>
       </Card>
 
+      {/* ELO Timeline Chart */}
       <Card withBorder radius="md" p="md">
         <Text size="lg" fw={700} mb="md">
           ELO Timeline
@@ -9138,6 +9755,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
         )}
       </Card>
 
+      {/* Match History Table */}
       <Card withBorder radius="md" p="md">
         <Text size="lg" fw={700} mb="md">
           Match History
@@ -9168,9 +9786,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
                   </td>
                   <td>{mh.old_elo.toFixed(1)}</td>
                   <td>
-                    {mh.elo_change > 0
-                      ? `+${mh.elo_change}`
-                      : mh.elo_change}
+                    {mh.elo_change > 0 ? `+${mh.elo_change}` : mh.elo_change}
                   </td>
                   <td>{mh.new_elo.toFixed(1)}</td>
                 </tr>
@@ -9248,12 +9864,23 @@ export const useArenaBattle = () => {
     if (isLoading) return; // Prevent double submission
     setIsLoading(true);
     try {
-      const result = await setArenaMatchWinner(winnerIds);
-      const { arena_session: updatedSession } = result;
+      await setArenaMatchWinner(winnerIds);
+      setArenaStep(ArenaStep.ROUND_RESULT);
+    } catch (error) {
+      console.error('Failed to process winner:', error);
+      // Don't throw, just log the error and return
+      return;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // If session is completed or all rounds are done, get final results
-      if (updatedSession.status === 'completed' || 
-          updatedSession.rounds_completed === updatedSession.num_rounds) {
+  const handleNextRound = async () => {
+    if (!currentArenaSession) return;
+    setIsLoading(true);
+    try {
+      // If we've done all rounds, show final result
+      if (currentArenaSession.rounds_completed >= currentArenaSession.num_rounds) {
         await getArenaResults();
         setArenaStep(ArenaStep.FINAL_RESULT);
         return;
@@ -9269,9 +9896,7 @@ export const useArenaBattle = () => {
       setCurrentFlashcard(flashcard);
       setArenaStep(ArenaStep.VERSUS);
     } catch (error) {
-      console.error('Failed to process winner:', error);
-      // Don't throw, just log the error and return
-      return;
+      console.error('Failed to process next round:', error);
     } finally {
       setIsLoading(false);
     }
@@ -9294,6 +9919,7 @@ export const useArenaBattle = () => {
     startBattle,
     handleVersusReady,
     handleSelectWinner,
+    handleNextRound,
     resetBattle,
     setArenaStep
   };
@@ -9700,6 +10326,7 @@ export function ArenaPage() {
     startBattle,
     handleVersusReady,
     handleSelectWinner,
+    handleNextRound,
     resetBattle
   } = useArenaBattle();
 
@@ -9766,6 +10393,7 @@ export function ArenaPage() {
         students={students}
         onVersusReady={handleVersusReady}
         onSelectWinner={handleSelectWinner}
+        onNextRound={handleNextRound}
         onReset={resetBattle}
         isLoading={battleLoading}
       />
@@ -9775,74 +10403,38 @@ export function ArenaPage() {
   return (
     <Box
       pos="relative"
+      p={{ base: 'md', sm: 'lg', md: 'xl' }}
       style={{
-        minHeight: '70vh',
+        height: '100vh',
         background: 'linear-gradient(165deg, #1A1B1E 0%, #13151A 100%)',
-        padding: '2rem'
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
-      <LoadingOverlay 
-        visible={isLoading} 
+      <LoadingOverlay
+        visible={isLoading}
         zIndex={1000}
         overlayProps={{ blur: 2 }}
       />
-      <Center py="xl">
-        <Card
-          w="90%"
-          maw={1200}
-          styles={(theme) => ({
-            root: {
-              background: `linear-gradient(165deg, ${theme.colors.dark[7]} 0%, ${theme.colors.dark[9]} 100%)`,
-              border: `1px solid rgba(149, 97, 255, 0.2)`,
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'radial-gradient(circle at top right, rgba(120, 100, 255, 0.1), transparent 70%)',
-                pointerEvents: 'none'
-              }
-            }
-          })}
-        >
-          <Stack>
-            <Title
-              order={2}
-              ta="center"
-              mt="sm"
-              styles={(theme) => ({
-                root: {
-                  fontSize: '2.5rem',
-                  fontWeight: 900,
-                  letterSpacing: '2px',
-                  textTransform: 'uppercase',
-                  textShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                  background: `linear-gradient(45deg, ${theme.colors.violet[4]}, ${theme.colors.indigo[4]})`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
-                }
-              })}
-            >
-              Flashcard Arena
-            </Title>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={arenaStep}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ type: "spring", stiffness: 100, damping: 15 }}
-              >
-                {renderContent()}
-              </motion.div>
-            </AnimatePresence>
-          </Stack>
-        </Card>
+      <Center style={{ flex: 1, width: '100%' }}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={arenaStep}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ type: "spring", stiffness: 100, damping: 15 }}
+            style={{
+              height: '100%',
+              width: '100%',
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {renderContent()}
+          </motion.div>
+        </AnimatePresence>
       </Center>
     </Box>
   );
@@ -11681,6 +12273,7 @@ import { MatchStatus } from '../types';
 // Shared interface for raw match data from API
 export interface RawMatch {
   id: string;
+  arena_id?: string;  // Optional since it was made nullable
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;
@@ -11690,6 +12283,8 @@ export interface RawMatch {
     elo_after: number | null;
   }>;
   winner_ids: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface Round {
@@ -12539,6 +13134,7 @@ import { arenaApi } from '../../services/api';
 import { wrapStoreAction } from '../../utils/errorUtils';
 import { transformMatchData } from '../../utils/matchTransformUtils';
 import { ArenaSessionStatus } from '../../types';
+import { useStudentStore } from '../studentStore';
 
 export interface ArenaSlice {
   createArenaSession: (playerIds: string[], numRounds: number) => Promise<void>;
@@ -12612,6 +13208,9 @@ export const createArenaSlice: ArenaStateCreator = (set, get, store) => ({
           currentArenaMatch: transformedMatch
         });
 
+        // Refresh the student store so UI sees updated ELO
+        await useStudentStore.getState().fetchStudents();
+
         return {
           match: transformedMatch,
           arena_session: updatedArenaSession
@@ -12639,6 +13238,10 @@ export const createArenaSlice: ArenaStateCreator = (set, get, store) => ({
 
         const response = await arenaApi.getResults(arenaSession.id);
         const { rankings } = response.data.data;
+
+        if (!rankings || !Array.isArray(rankings)) {
+          throw new Error('Invalid rankings data received from server');
+        }
 
         set((state) => ({
           currentArenaSession: state.currentArenaSession
@@ -12886,16 +13489,19 @@ export interface ArenaSession {
 
 export interface ArenaMatch {
   id: string;
+  arena_id?: string;
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;
   player1_id: string;
   player2_id: string;
-  winner_ids: string[];
+  winner_ids?: string[];
   player1_elo_before: number;
   player2_elo_before: number;
-  player1_elo_after: number | null;
-  player2_elo_after: number | null;
+  player1_elo_after?: number;
+  player2_elo_after?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export enum ArenaStep {
@@ -13040,7 +13646,7 @@ export interface ArenaSession {
 
 export interface ArenaMatch {
   id: string;
-  arena_id: string;
+  arena_id?: string;
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;
@@ -13222,11 +13828,14 @@ interface MatchParticipant {
 
 interface RawMatch {
   id: string;
+  arena_id?: string;
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;
   participants: MatchParticipant[];
   winner_ids: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 export const transformMatchData = (match: RawMatch): ArenaMatch => {
@@ -13236,6 +13845,7 @@ export const transformMatchData = (match: RawMatch): ArenaMatch => {
 
   const transformedMatch: ArenaMatch = {
     id: match.id,
+    ...(match.arena_id && { arena_id: match.arena_id }),
     status: match.status,
     num_rounds: match.num_rounds,
     rounds_completed: match.rounds_completed,
@@ -13243,9 +13853,11 @@ export const transformMatchData = (match: RawMatch): ArenaMatch => {
     player2_id: match.participants[1].student_id,
     player1_elo_before: match.participants[0].elo_before,
     player2_elo_before: match.participants[1].elo_before,
-    player1_elo_after: match.participants[0].elo_after,
-    player2_elo_after: match.participants[1].elo_after,
-    winner_ids: match.winner_ids || []
+    player1_elo_after: match.participants[0].elo_after ?? undefined,
+    player2_elo_after: match.participants[1].elo_after ?? undefined,
+    winner_ids: match.winner_ids || [],
+    created_at: match.created_at,
+    updated_at: match.updated_at
   };
 
   return transformedMatch;

@@ -4,6 +4,7 @@ import { arenaApi } from '../../services/api';
 import { wrapStoreAction } from '../../utils/errorUtils';
 import { transformMatchData } from '../../utils/matchTransformUtils';
 import { ArenaSessionStatus } from '../../types';
+import { useStudentStore } from '../studentStore';
 
 export interface ArenaSlice {
   createArenaSession: (playerIds: string[], numRounds: number) => Promise<void>;
@@ -77,6 +78,9 @@ export const createArenaSlice: ArenaStateCreator = (set, get, store) => ({
           currentArenaMatch: transformedMatch
         });
 
+        // Refresh the student store so UI sees updated ELO
+        await useStudentStore.getState().fetchStudents();
+
         return {
           match: transformedMatch,
           arena_session: updatedArenaSession
@@ -104,6 +108,10 @@ export const createArenaSlice: ArenaStateCreator = (set, get, store) => ({
 
         const response = await arenaApi.getResults(arenaSession.id);
         const { rankings } = response.data.data;
+
+        if (!rankings || !Array.isArray(rankings)) {
+          throw new Error('Invalid rankings data received from server');
+        }
 
         set((state) => ({
           currentArenaSession: state.currentArenaSession

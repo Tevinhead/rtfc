@@ -5,6 +5,7 @@ import { MatchStatus } from '../types';
 // Shared interface for raw match data from API
 export interface RawMatch {
   id: string;
+  arena_id?: string;  // Optional since it was made nullable
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;
@@ -14,6 +15,8 @@ export interface RawMatch {
     elo_after: number | null;
   }>;
   winner_ids: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface Round {

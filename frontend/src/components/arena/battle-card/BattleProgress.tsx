@@ -11,15 +11,14 @@ export const BattleProgress: React.FC<BattleProgressProps> = ({
   totalRounds,
 }) => {
   return (
-    <Card shadow="sm" p="md" radius="md" withBorder>
-      <Text size="lg" fw={700} ta="center" mb="md">
+    <Card shadow="sm" p="xs" radius="sm" withBorder style={{ background: '#4169E1', color: 'white' }}>
+      <Text size="md" fw={600} ta="center" mb="xs">
         Battle {roundsCompleted + 1} of {totalRounds}
       </Text>
       <Progress
         value={((roundsCompleted + 1) / totalRounds) * 100}
-        size="xl"
+        size="md"
         radius="xl"
-        mb="md"
       />
     </Card>
   );

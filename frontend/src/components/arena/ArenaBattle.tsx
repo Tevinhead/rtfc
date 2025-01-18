@@ -1,21 +1,17 @@
 import React, { useCallback } from 'react';
 import { Box } from '@mantine/core';
-import { ArenaStep } from '../../types/arena';
+import { ArenaStep, ArenaMatch } from '../../types/arena';
 import type { Student, Flashcard } from '../../types';
 import { useArenaBattleSounds } from '../../hooks/useArenaBattleSounds';
 import { VersusScreenWrapper } from './screens/VersusScreenWrapper';
 import { BattleScreen } from './screens/BattleScreen';
 import { FinalResultScreen } from './screens/FinalResultScreen';
+import { RoundResultScreen } from './screens/RoundResultScreen';
 
 interface ArenaBattleProps {
   step: ArenaStep;
   currentFlashcard: Flashcard | null;
-  currentMatch: {
-    player1_id: string;
-    player2_id: string;
-    player1_elo_before: number;
-    player2_elo_before: number;
-  } | null;
+  currentMatch: ArenaMatch | null;
   arenaSession: {
     rounds_completed: number;
     num_rounds: number;
@@ -24,6 +20,7 @@ interface ArenaBattleProps {
   students: Student[];
   onVersusReady: () => void;
   onSelectWinner: (winnerIds: string[]) => void;
+  onNextRound: () => void;
   onReset: () => void;
   isLoading: boolean;
 }
@@ -36,6 +33,7 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   students,
   onVersusReady,
   onSelectWinner,
+  onNextRound,
   onReset,
   isLoading,
 }) => {
@@ -49,7 +47,16 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
   }, [onVersusReady]);
 
   return (
-    <Box data-testid="arena-battle" style={{ width: '100%', position: 'relative' }}>
+    <Box
+      data-testid="arena-battle"
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {step === ArenaStep.VERSUS && (
         <VersusScreenWrapper
           currentMatch={currentMatch}
@@ -72,6 +79,15 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
         />
       )}
       
+      {step === ArenaStep.ROUND_RESULT && currentMatch && (
+        <RoundResultScreen
+          currentMatch={currentMatch}
+          students={students}
+          onNextRound={onNextRound}
+          onReset={onReset}
+        />
+      )}
+
       {step === ArenaStep.FINAL_RESULT && (
         <FinalResultScreen
           arenaSession={arenaSession}

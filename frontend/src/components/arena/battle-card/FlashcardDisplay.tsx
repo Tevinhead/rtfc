@@ -19,10 +19,10 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
 
   const getFontSize = useCallback((text: string) => {
     const length = text.length;
-    if (length > 200) return '32px';
-    if (length > 100) return '48px';
-    if (length > 50) return '64px';
-    return '96px';
+    if (length > 200) return 'min(7vh, 64px)';
+    if (length > 100) return 'min(9vh, 80px)';
+    if (length > 50) return 'min(11vh, 96px)';
+    return 'min(13vh, 112px)';
   }, []);
 
   const sharedTextStyle = {
@@ -33,8 +33,10 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '0.5rem',
+    padding: 'min(2vh, 0.5rem)',
     lineHeight: 1.2,
+    width: '100%',
+    height: '100%'
   };
 
   return (
@@ -42,11 +44,11 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
       style={{
         perspective: '1000px',
         width: '100%',
-        maxHeight: '420px',
-        height: 'auto',
-        minHeight: '300px',
+        height: '100%',
         position: 'relative',
-        padding: '1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
     >
       <motion.div
@@ -69,35 +71,52 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
           }}
         >
           <Card
-            shadow="lg"
-            p="md"
-            radius="md"
+            shadow="sm"
+            p={{ base: 'xs', sm: 'md' }}
+            radius="sm"
             withBorder
             style={{
               width: '100%',
               height: '100%',
-              background: 'linear-gradient(135deg, #FEE140 0%, #FA709A 100%)',
-              color: '#333',
+              background: 'linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%)',
+              color: '#fff',
               boxSizing: 'border-box',
+              cursor: 'pointer',
+              position: 'relative',
+              borderRadius: 'min(2vh, 12px)',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
             }}
+            onClick={handleFlip}
           >
-            <Stack gap="xs" style={{ height: '100%' }}>
-              <Text
-                size={getFontSize(flashcard.question)}
-                fw={800}
-                ta="center"
-                style={sharedTextStyle}
+            <Text
+              size={getFontSize(flashcard.question)}
+              fw={700}
+              ta="center"
+              style={{
+                ...sharedTextStyle,
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }}
+            >
+              {flashcard.question}
+            </Text>
+            <Tooltip label="Flip to see Answer" withArrow position="bottom">
+              <ActionIcon
+                variant="subtle"
+                color="gray.0"
+                style={{
+                  position: 'absolute',
+                  bottom: '5px',
+                  right: '5px',
+                  opacity: 0.7,
+                }}
               >
-                {flashcard.question}
-              </Text>
-              <Group justify="center">
-                <Tooltip label="Flip to see Answer" withArrow>
-                  <ActionIcon variant="light" onClick={handleFlip}>
-                    <IconRefresh size={20} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Stack>
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
           </Card>
         </motion.div>
 
@@ -112,35 +131,52 @@ export const FlashcardDisplay: React.FC<FlashcardDisplayProps> = ({
           }}
         >
           <Card
-            shadow="lg"
-            p="xl"
-            radius="md"
+            shadow="sm"
+            p={{ base: 'xs', sm: 'md' }}
+            radius="sm"
             withBorder
             style={{
               width: '100%',
               height: '100%',
-              background: 'linear-gradient(135deg, #A1FFCE 0%, #FAFFD1 100%)',
-              color: '#333',
+              background: 'linear-gradient(135deg, #66bb6a 0%, #4CAF50 100%)',
+              color: '#fff',
               boxSizing: 'border-box',
+              cursor: 'pointer',
+              position: 'relative',
+              borderRadius: 'min(2vh, 12px)',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
             }}
+            onClick={handleFlip}
           >
-            <Stack gap="md" style={{ height: '100%' }}>
-              <Text
-                size={getFontSize(flashcard.answer)}
-                fw={800}
-                ta="center"
-                style={sharedTextStyle}
+            <Text
+              size={getFontSize(flashcard.answer)}
+              fw={700}
+              ta="center"
+              style={{
+                ...sharedTextStyle,
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }}
+            >
+              {flashcard.answer}
+            </Text>
+            <Tooltip label="Flip to see Question" withArrow position="bottom">
+              <ActionIcon
+                variant="subtle"
+                color="gray.0"
+                style={{
+                  position: 'absolute',
+                  bottom: '5px',
+                  right: '5px',
+                  opacity: 0.7,
+                }}
               >
-                {flashcard.answer}
-              </Text>
-              <Group justify="center">
-                <Tooltip label="Flip to see Question" withArrow>
-                  <ActionIcon variant="light" onClick={handleFlip}>
-                    <IconRefresh size={20} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Stack>
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
           </Card>
         </motion.div>
       </motion.div>

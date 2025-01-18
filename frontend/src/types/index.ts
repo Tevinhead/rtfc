@@ -104,7 +104,7 @@ export interface ArenaSession {
 
 export interface ArenaMatch {
   id: string;
-  arena_id: string;
+  arena_id?: string;
   status: MatchStatus;
   num_rounds: number;
   rounds_completed: number;

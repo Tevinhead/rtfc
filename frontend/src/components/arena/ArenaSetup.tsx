@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { Stack, Box, Paper } from '@mantine/core';
+import { Stack, Box, Paper, MantineTheme } from '@mantine/core';
 import { useArenaSetup } from '../../hooks/useArenaSetup';
 import { useStudentStore } from '../../stores';
 import { containerStyles, paperStyles } from './setup/styles';
@@ -64,8 +64,19 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
     <Stack
       gap="xl"
       data-testid="arena-setup"
-      p="xl"
-      styles={containerStyles}
+      p={{ base: 'md', sm: 'xl' }}
+      maw="100%"
+      w="100%"
+      mx="auto"
+      styles={(theme: MantineTheme) => ({
+        root: {
+          ...containerStyles(theme).root,
+          maxWidth: '1400px',
+          width: '100%',
+          margin: '0 auto',
+          padding: theme.spacing.xl
+        }
+      })}
     >
       <Box
         style={{
@@ -83,7 +94,17 @@ export const ArenaSetup: React.FC<ArenaSetupProps> = ({ onStart, isLoading = fal
         <ArenaHeader />
       </Stack>
 
-      <Paper p="xl" radius="md" styles={paperStyles}>
+      <Paper
+        p={{ base: 'md', sm: 'xl' }}
+        radius="md"
+        styles={(theme: MantineTheme) => ({
+          root: {
+            ...paperStyles(theme).root,
+            width: '100%',
+            maxWidth: '100%'
+          }
+        })}
+      >
         <Stack gap="xl">
           <ArenaPackSelect
             packSelectData={packSelectData}

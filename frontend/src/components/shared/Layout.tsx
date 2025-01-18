@@ -10,11 +10,12 @@ export function Layout({ children }: LayoutProps) {
   return (
     <Navigation>
       <Container
-        size="xl"
+        fluid
         p={0}
         style={{
           background: 'linear-gradient(165deg, #1A1B1E 0%, #13151A 100%)',
-          minHeight: '100vh'
+          minHeight: '100vh',
+          maxWidth: '100vw'
         }}
       >
         {children}
