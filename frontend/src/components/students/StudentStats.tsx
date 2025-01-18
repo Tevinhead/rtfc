@@ -13,16 +13,19 @@ interface StudentStatsProps {
 }
 
 export const StudentStats = React.memo(function StudentStats({ student }: StudentStatsProps) {
+  // Store retrieval for match history
   const { studentHistory, fetchStudentHistory } = useStudentStore();
   const historyData = useMemo(
     () => studentHistory[student.id] || [],
     [studentHistory, student.id]
   );
 
+  // Fetch match history if not already fetched
   useEffect(() => {
     void fetchStudentHistory(student.id);
   }, [student.id, fetchStudentHistory]);
 
+  // Prepare data for ELO timeline chart
   const eloTimeline = useMemo(() => {
     return historyData.map((mh) => ({
       date: new Date(mh.date).toLocaleDateString(),
@@ -30,21 +33,28 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
     }));
   }, [historyData]);
 
+  // Compute display of student's win-rate and record
   const winRateDisplay = useMemo(
     () => `${(student.win_rate * 100).toFixed(1)}%`,
     [student.win_rate]
   );
-
   const recordDisplay = useMemo(
     () => `${student.wins}W - ${student.losses}L`,
     [student.wins, student.losses]
   );
 
-  // Compute unlocked achievements
-  const unlockedAchievements = useMemo(() => {
-    const unlockedIds = getStudentAchievements(student, historyData);
-    return achievementsConfig.filter((ach) => unlockedIds.includes(ach.id));
+  // 1) Figure out which achievements are unlocked
+  const unlockedIds = useMemo(() => {
+    return getStudentAchievements(student, historyData);
   }, [student, historyData]);
+
+  // 2) Build a combined list (locked + unlocked) with an `isUnlocked` flag
+  const allAchievements = useMemo(() => {
+    return achievementsConfig.map((achievement) => ({
+      ...achievement,
+      isUnlocked: unlockedIds.includes(achievement.id),
+    }));
+  }, [unlockedIds]);
 
   return (
     <Stack gap="lg">
@@ -97,6 +107,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
         </Text>
       </Group>
 
+      {/* Top Stats (Matches, Win Rate, ELO) */}
       <Grid>
         <Grid.Col span={4}>
           <StatsCard
@@ -124,42 +135,60 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
         </Grid.Col>
       </Grid>
 
+      {/* Achievements Section */}
       <Card withBorder radius="md" p="md">
         <Title order={3} mb="md">Achievements</Title>
-        {unlockedAchievements.length === 0 ? (
-          <Text color="dimmed">No achievements yet.</Text>
-        ) : (
-          <Group gap="lg">
-            {unlockedAchievements.map((ach) => (
-              <Card
-                key={ach.id}
-                shadow="md"
-                p="md"
-                radius="md"
-                withBorder
-                style={{
-                  width: 180,
-                  textAlign: 'center',
-                  background: 'rgba(255,255,255,0.05)',
-                }}
+        <Group gap="lg">
+          {/* 
+            3) Always display all achievements. 
+               If isUnlocked = true, show normal style.
+               Else, show a gray/"locked" style.
+          */}
+          {allAchievements.map((ach) => (
+            <Card
+              key={ach.id}
+              shadow="md"
+              p="md"
+              radius="md"
+              withBorder
+              style={{
+                width: 180,
+                textAlign: 'center',
+                background: ach.isUnlocked
+                  ? 'rgba(255,255,255,0.05)'
+                  : 'rgba(255,255,255,0.02)',
+              }}
+            >
+              <Badge
+                color={ach.isUnlocked ? ach.color : 'gray'}
+                variant={ach.isUnlocked ? 'filled' : 'outline'}
+                size="lg"
+                style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
+                leftSection={ach.isUnlocked ? undefined : null}
               >
-                <Badge
-                  color={ach.color}
-                  variant="filled"
-                  size="lg"
-                  style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
-                >
-                  {ach.title}
-                </Badge>
-                <Text size="sm" color="dimmed">
-                  {ach.description}
+                {ach.title}
+              </Badge>
+              <Text
+                size="sm"
+                color={ach.isUnlocked ? 'dimmed' : 'gray'}
+              >
+                {ach.description}
+              </Text>
+              {/* 
+                If not unlocked, let's show a small "Locked" label 
+                or any subtle hint that it's not unlocked yet
+              */}
+              {!ach.isUnlocked && (
+                <Text size="xs" color="dimmed" mt="xs">
+                  Locked
                 </Text>
-              </Card>
-            ))}
-          </Group>
-        )}
+              )}
+            </Card>
+          ))}
+        </Group>
       </Card>
 
+      {/* ELO Timeline Chart */}
       <Card withBorder radius="md" p="md">
         <Text size="lg" fw={700} mb="md">
           ELO Timeline
@@ -181,6 +210,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
         )}
       </Card>
 
+      {/* Match History Table */}
       <Card withBorder radius="md" p="md">
         <Text size="lg" fw={700} mb="md">
           Match History
@@ -211,9 +241,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
                   </td>
                   <td>{mh.old_elo.toFixed(1)}</td>
                   <td>
-                    {mh.elo_change > 0
-                      ? `+${mh.elo_change}`
-                      : mh.elo_change}
+                    {mh.elo_change > 0 ? `+${mh.elo_change}` : mh.elo_change}
                   </td>
                   <td>{mh.new_elo.toFixed(1)}</td>
                 </tr>
