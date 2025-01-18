@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
-import { Card, Text, Stack, Grid, Table, Center, Avatar, Group, Box } from '@mantine/core';
+import { Card, Text, Stack, Grid, Table, Center, Avatar, Group, Box, Badge, Title } from '@mantine/core';
 import { motion } from 'framer-motion';
 import { LineChart } from '@mantine/charts';
 import { StatsCard } from '../shared/StatsCard';
 import { Student } from '../../types';
 import { useStudentStore } from '../../stores';
+import { achievementsConfig } from '../../achievements/achievementsConfig';
+import { getStudentAchievements } from '../../achievements/getStudentAchievements';
 
 interface StudentStatsProps {
   student: Student;
@@ -37,6 +39,12 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
     () => `${student.wins}W - ${student.losses}L`,
     [student.wins, student.losses]
   );
+
+  // Compute unlocked achievements
+  const unlockedAchievements = useMemo(() => {
+    const unlockedIds = getStudentAchievements(student, historyData);
+    return achievementsConfig.filter((ach) => unlockedIds.includes(ach.id));
+  }, [student, historyData]);
 
   return (
     <Stack gap="lg">
@@ -115,6 +123,42 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
           />
         </Grid.Col>
       </Grid>
+
+      <Card withBorder radius="md" p="md">
+        <Title order={3} mb="md">Achievements</Title>
+        {unlockedAchievements.length === 0 ? (
+          <Text color="dimmed">No achievements yet.</Text>
+        ) : (
+          <Group gap="lg">
+            {unlockedAchievements.map((ach) => (
+              <Card
+                key={ach.id}
+                shadow="md"
+                p="md"
+                radius="md"
+                withBorder
+                style={{
+                  width: 180,
+                  textAlign: 'center',
+                  background: 'rgba(255,255,255,0.05)',
+                }}
+              >
+                <Badge
+                  color={ach.color}
+                  variant="filled"
+                  size="lg"
+                  style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
+                >
+                  {ach.title}
+                </Badge>
+                <Text size="sm" color="dimmed">
+                  {ach.description}
+                </Text>
+              </Card>
+            ))}
+          </Group>
+        )}
+      </Card>
 
       <Card withBorder radius="md" p="md">
         <Text size="lg" fw={700} mb="md">
