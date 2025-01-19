@@ -179,7 +179,8 @@ async def reset_student_stats(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Reset the specified student's statistics to default values.
+    Reset the specified student's statistics to default values,
+    and remove all match history (match_participants, round_participants).
     """
     result = await db.execute(
         select(Student).where(Student.id == student_id)
@@ -191,7 +192,19 @@ async def reset_student_stats(
             detail="Student not found"
         )
 
-    # Reset fields to default values
+    # 1) Remove match history
+    #    Remove all RoundParticipants and MatchParticipants rows for this student
+    from sqlalchemy import text
+    await db.execute(
+        text("DELETE FROM round_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+    await db.execute(
+        text("DELETE FROM match_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+
+    # 2) Reset fields to default values
     student.elo_rating = 1000.0
     student.wins = 0
     student.losses = 0

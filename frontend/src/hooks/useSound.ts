@@ -1,16 +1,18 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 // Sound files are in public/sounds
-const battleSoundURL = '/sounds/battle-sound.wav';
-const vsScreenSoundURL = '/sounds/vs-screen-sound.wav';
-const resultScreenSoundURL = '/sounds/result-screen-sound.wav';
+const battleSoundURL = '/sounds/battle-sound.mp3';
+const vsScreenSoundURL = '/sounds/vs-screen-sound.mp3';
+const resultScreenSoundURL = '/sounds/result-screen-sound.mp3';
+const roundResultSoundURL = '/sounds/round-result-sound.mp3';
 
 /**
  * This hook manages playing/stopping background and one-shot sounds.
  */
 export const useSound = () => {
-  // We'll keep one "looped" audio ref for the BATTLE step
+  // Keep refs for audio that needs to be stopped
   const battleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const resultAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize the battle-sound Audio object once
   useEffect(() => {
@@ -65,8 +67,30 @@ export const useSound = () => {
   const playResultSound = useCallback(() => {
     const audio = new Audio(resultScreenSoundURL);
     audio.volume = 0.35;
+    resultAudioRef.current = audio;
     audio.play().catch((err) => {
       console.error('Failed to play result-screen-sound:', err);
+    });
+  }, []);
+
+  /**
+   * Stop the result sound.
+   */
+  const stopResultSound = useCallback(() => {
+    if (resultAudioRef.current) {
+      resultAudioRef.current.pause();
+      resultAudioRef.current.currentTime = 0;
+    }
+  }, []);
+
+  /**
+   * Play the round result screen sound once (100% volume).
+   */
+  const playRoundResultSound = useCallback(() => {
+    const audio = new Audio(roundResultSoundURL);
+    audio.volume = 1.0;
+    audio.play().catch((err) => {
+      console.error('Failed to play round-result-sound:', err);
     });
   }, []);
 
@@ -82,6 +106,8 @@ export const useSound = () => {
     stopBattleSound,
     playVsSound,
     playResultSound,
+    stopResultSound,
+    playRoundResultSound,
     playSound, // Keep existing usage safe
   };
 };

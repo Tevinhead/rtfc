@@ -91,6 +91,7 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
       {step === ArenaStep.FINAL_RESULT && (
         <FinalResultScreen
           arenaSession={arenaSession}
+          students={students}
           onReset={onReset}
         />
       )}

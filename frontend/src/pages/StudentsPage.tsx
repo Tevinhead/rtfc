@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StudentList } from '../components/students/StudentList';
 import { StudentForm } from '../components/students/StudentForm';
-import { Title, Alert, Button, Modal, Group, Text, Stack, Card, Center, Box } from '@mantine/core';
+import { Title, Alert, Button, Modal, Group, Text, Stack, Card, Box, useMantineTheme } from '@mantine/core';
 import { useStudentStore } from '../stores';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import { Student } from '../types';
@@ -12,6 +12,7 @@ export function StudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const theme = useMantineTheme();
 
   useEffect(() => {
     fetchStudents();
@@ -89,39 +90,62 @@ export function StudentsPage() {
   }
 
   return (
-    <Box>
-      <Center py="xl">
-        <Card w="90%" maw={1200}>
-          <Stack gap="lg">
-            <Group justify="space-between">
-              <Title order={2}>Students</Title>
-              <Button
-                leftSection={<IconPlus size={16} />}
-                onClick={handleAddClick}
-                color="teal"
-              >
-                Add Student
-              </Button>
-            </Group>
+    <Box
+      style={{
+        backgroundColor: theme.colors.custom[9],
+        minHeight: '100vh',
+        padding: theme.spacing.xl,
+      }}
+    >
+      <Card 
+        p="xl"
+        radius="lg"
+        style={{
+          backgroundColor: 'transparent',
+          border: 'none',
+        }}
+      >
+        <Stack gap="xl">
+          <Group justify="space-between" align="center">
+            <Title order={2} c="custom.0">Students</Title>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={handleAddClick}
+              color="custom.5"
+              variant="filled"
+              radius="md"
+              size="md"
+            >
+              Add Student
+            </Button>
+          </Group>
 
-            <Card>
-              <StudentList 
-                students={students} 
-                onEdit={handleEdit}
-                onDelete={handleDeleteClick}
-                onReset={handleReset}
-                loading={loading}
-                error={error}
-              />
-            </Card>
-          </Stack>
-        </Card>
-      </Center>
+          <Box>
+            <StudentList 
+              students={students} 
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              onReset={handleReset}
+              loading={loading}
+              error={error}
+            />
+          </Box>
+        </Stack>
+      </Card>
 
       <Modal
         opened={formModalOpen}
         onClose={handleModalClose}
         title={modalTitle}
+        styles={{
+          header: {
+            backgroundColor: theme.colors.custom[7],
+            color: theme.colors.custom[0],
+          },
+          content: {
+            backgroundColor: theme.colors.custom[7],
+          },
+        }}
       >
         <StudentForm
           student={selectedStudent}
@@ -134,12 +158,35 @@ export function StudentsPage() {
         opened={deleteModalOpen}
         onClose={handleDeleteCancel}
         title="Delete Student"
+        styles={{
+          header: {
+            backgroundColor: theme.colors.custom[7],
+            color: theme.colors.custom[0],
+          },
+          content: {
+            backgroundColor: theme.colors.custom[7],
+          },
+        }}
       >
         <Stack>
-          <Text>Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.</Text>
+          <Text c="custom.0">
+            Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.
+          </Text>
           <Group justify="flex-end">
-            <Button variant="light" color="teal" onClick={handleDeleteCancel}>Cancel</Button>
-            <Button color="red" variant="filled" onClick={handleDeleteConfirm}>Delete</Button>
+            <Button 
+              variant="filled" 
+              color="custom.5"
+              onClick={handleDeleteCancel}
+            >
+              Cancel
+            </Button>
+            <Button 
+              color="red.7"
+              variant="filled" 
+              onClick={handleDeleteConfirm}
+            >
+              Delete
+            </Button>
           </Group>
         </Stack>
       </Modal>

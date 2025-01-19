@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Grid, TextInput, Group, Modal, Stack, Alert } from '@mantine/core';
+import { Grid, TextInput, Group, Modal, Stack, Alert, useMantineTheme } from '@mantine/core';
 import { StudentCard } from './StudentCard';
 import { StudentStats } from './StudentStats';
 import { Student } from '../../types';
@@ -28,8 +28,8 @@ export function StudentList({
 }: StudentListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const theme = useMantineTheme();
 
-  // Memoize handlers
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.currentTarget.value);
   }, []);
@@ -54,7 +54,6 @@ export function StudentList({
     }
   }, [onEdit]);
 
-  // Memoize filtered students
   const filteredStudents = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return students.filter(student =>
@@ -63,7 +62,7 @@ export function StudentList({
   }, [students, searchQuery]);
 
   return (
-    <Stack gap="md">
+    <Stack gap="xl">
       {loading && <LoadingOverlay visible={true} />}
 
       {error && (
@@ -80,12 +79,32 @@ export function StudentList({
               value={searchQuery}
               onChange={handleSearchChange}
               style={{ flex: 1 }}
+              styles={{
+                input: {
+                  backgroundColor: theme.colors.custom[7],
+                  color: theme.colors.custom[0],
+                  border: `1px solid ${theme.colors.custom[5]}30`,
+                  '&::placeholder': {
+                    color: theme.colors.custom[0],
+                    opacity: 0.5,
+                  },
+                  '&:focus': {
+                    borderColor: theme.colors.custom[5],
+                  },
+                },
+              }}
             />
           </Group>
 
-          <Grid>
+          <Grid gutter="xl">
             {filteredStudents.map((student) => (
-              <Grid.Col key={student.id} span={{ base: 12, sm: 6, lg: 4 }}>
+              <Grid.Col 
+                key={student.id} 
+                span={{ base: 12, sm: 6, lg: 4 }}
+                style={{
+                  marginBottom: theme.spacing.xl,
+                }}
+              >
                 <StudentCard
                   student={student}
                   onViewStats={() => handleViewStats(student)}
@@ -104,6 +123,15 @@ export function StudentList({
             onClose={handleCloseStats}
             title={selectedStudent?.name + "'s Statistics"}
             size="xl"
+            styles={{
+              header: {
+                backgroundColor: theme.colors.custom[9],
+                color: theme.colors.custom[0],
+              },
+              content: {
+                backgroundColor: theme.colors.custom[9],
+              },
+            }}
           >
             {selectedStudent && (
               <StudentStats

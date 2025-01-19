@@ -8,16 +8,25 @@ export const useArenaBattleSounds = (step: ArenaStep) => {
     stopBattleSound,
     playVsSound,
     playResultSound,
+    stopResultSound,
+    playRoundResultSound,
   } = useSound();
 
   useEffect(() => {
     switch (step) {
       case ArenaStep.VERSUS:
         stopBattleSound();
+        stopResultSound();
         playVsSound();
         break;
       case ArenaStep.BATTLE:
+        stopResultSound();
         playBattleSound();
+        break;
+      case ArenaStep.ROUND_RESULT:
+        stopBattleSound();
+        stopResultSound();
+        playRoundResultSound();
         break;
       case ArenaStep.FINAL_RESULT:
         stopBattleSound();
@@ -25,10 +34,12 @@ export const useArenaBattleSounds = (step: ArenaStep) => {
         break;
       default:
         stopBattleSound();
+        stopResultSound();
         break;
     }
     return () => {
       stopBattleSound();
+      stopResultSound();
     };
   }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
 };

@@ -133,15 +133,21 @@ const createStore = (baseSet: any, get: any, _store: any): StudentStoreState => 
       try {
         const response = await studentApi.resetStats(studentId);
         
-        // Update student in store
-        set((state) => ({
-          ...state,
-          students: state.students.map((student) =>
-            student.id === studentId ? response.data.data : student
-          ),
-          loading: false,
-          error: null
-        }));
+        // Update student in store and clear their match history
+        set((state) => {
+          const updatedHistory = { ...state.studentHistory };
+          delete updatedHistory[studentId]; // Remove their entire history
+
+          return {
+            ...state,
+            students: state.students.map((student) =>
+              student.id === studentId ? response.data.data : student
+            ),
+            studentHistory: updatedHistory,
+            loading: false,
+            error: null
+          };
+        });
 
         // Reset arena state if the student is in the current session
         const battleStore = useBattleStore.getState();

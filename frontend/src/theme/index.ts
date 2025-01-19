@@ -1,53 +1,41 @@
 import { createTheme, MantineTheme } from '@mantine/core';
 
 export const theme = createTheme({
-  primaryColor: 'indigo',
+  primaryColor: 'custom',
 
   colors: {
-    indigo: [
-      '#EEF2FF',
-      '#E0E7FF',
-      '#C7D2FE',
-      '#A5B4FC',
-      '#818CF8',
-      '#6366F1',
-      '#4F46E5',
-      '#4338CA',
-      '#3730A3',
-      '#312E81',
-    ],
-    purple: [
-      '#FAF5FF',
-      '#F3E8FF',
-      '#E9D5FF',
-      '#D8B4FE',
-      '#C084FC',
-      '#A855F7',
-      '#9333EA',
-      '#7E22CE',
-      '#6B21A8',
-      '#581C87',
+    custom: [
+      '#EEEEEE', // 0 - Lightest
+      '#DDDDDD', // 1
+      '#CCCCCC', // 2
+      '#66C3C8', // 3
+      '#33B6BC', // 4
+      '#00ADB5', // 5 - Primary accent
+      '#009199', // 6
+      '#393E46', // 7 - Secondary dark
+      '#2C3238', // 8
+      '#222831', // 9 - Primary dark
     ],
     dark: [
-      '#C1C2C5',
-      '#A6A7AB',
-      '#909296',
-      '#5C5F66',
-      '#373A40',
-      '#2C2E33',
-      '#25262B',
-      '#1A1B1E',
-      '#141517',
-      '#101113',
+      '#EEEEEE', // 0 - Light text
+      '#DDDDDD', // 1
+      '#CCCCCC', // 2
+      '#BBBBBB', // 3
+      '#393E46', // 4
+      '#2C3238', // 5
+      '#272B33', // 6
+      '#22262D', // 7
+      '#1D2026', // 8
+      '#222831', // 9 - Darkest background
     ],
   },
 
-  white: '#FFFFFF',
-  black: '#1A1B1E',
+  white: '#EEEEEE',
+  black: '#222831',
   
   defaultGradient: {
-    from: 'indigo.6',
-    to: 'purple.6',
+    from: 'custom.5',
+    to: 'custom.7',
     deg: 45,
   },
 
@@ -87,6 +75,8 @@ export const theme = createTheme({
       },
       styles: (theme: MantineTheme) => ({
         root: {
+          backgroundColor: theme.colors.custom[7],
+          color: theme.colors.custom[0],
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           '&:hover': {
             transform: 'translateY(-4px)',
@@ -97,12 +87,15 @@ export const theme = createTheme({
     },
     AppShell: {
       styles: (theme: MantineTheme) => ({
+        main: {
+          backgroundColor: theme.colors.custom[9],
+        },
         header: {
-          background: `linear-gradient(135deg, ${theme.colors.blue[6]} 0%, ${theme.colors.blue[9]} 100%)`,
+          background: theme.colors.custom[7],
           borderBottom: 'none',
         },
         navbar: {
-          backgroundColor: theme.white,
+          backgroundColor: theme.colors.custom[7],
           border: 'none',
           boxShadow: theme.shadows.sm,
         },

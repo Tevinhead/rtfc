@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card, Text, Group, Stack, Button, Avatar, Box } from '@mantine/core';
+import { Card, Text, Group, Stack, Button, Avatar, Box, useMantineTheme } from '@mantine/core';
 import { StatsCard } from '../shared/StatsCard';
 import { Student } from '../../types';
 
@@ -22,6 +22,8 @@ export const StudentCard = React.memo(function StudentCard({
   onReset,
   isSelected = false
 }: StudentCardProps) {
+  const theme = useMantineTheme();
+  
   const winRateDisplay = useMemo(() => {
     return `${(student.win_rate * 100).toFixed(1)}%`;
   }, [student.win_rate]);
@@ -34,99 +36,87 @@ export const StudentCard = React.memo(function StudentCard({
     <Card
       withBorder
       radius="md"
-      p="md"
+      p="xl"
       style={{
-        border: isSelected ? '2px solid #40a9ff' : '1px solid #e9ecef',
-        transition: 'all 0.2s ease',
+        backgroundColor: theme.colors.custom[8],
+        border: isSelected ? `2px solid ${theme.colors.custom[5]}` : 'none',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
         '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
         }
       }}
     >
-      <Stack>
+      <Stack gap="lg">
         <Group justify="space-between" align="flex-start">
-          <Group gap="xs">
-            <Box
+          <Group gap="md">
+            <Avatar
+              src={student.avatar_url || undefined}
+              alt={student.name}
+              radius="xl"
+              size={60}
               style={{
-                position: 'relative',
-                padding: '4px',
-                borderRadius: '50%',
-                background: 'linear-gradient(45deg, #4dabf7, #228be6)',
-                boxShadow: '0 0 10px rgba(77, 171, 247, 0.3)'
+                border: `2px solid ${theme.colors.custom[5]}`,
+                boxShadow: `0 0 10px ${theme.colors.custom[5]}30`
               }}
             >
-              <Avatar
-                src={student.avatar_url || undefined}
-                alt={student.name}
-                radius="xl"
-                size={60}
-                style={{
-                  border: '2px solid #fff',
-                  transition: 'transform 0.2s ease',
-                  '&:hover': {
-                    transform: 'scale(1.05)'
-                  }
-                }}
-              >
-                {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
-              </Avatar>
-            </Box>
-            <div>
-              <Text 
-                size="lg" 
-                fw={700}
-                style={{
-                  background: 'linear-gradient(45deg, #4dabf7, #228be6)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
-                }}
-              >
-                {student.name}
-              </Text>
-            </div>
+              {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
+            </Avatar>
+            <Text 
+              size="xl" 
+              fw={700}
+              c="custom.0"
+            >
+              {student.name}
+            </Text>
           </Group>
 
-          <Group>
-            <Group>
-              {onEdit && (
-                <Button variant="light" onClick={onEdit} color="blue">
-                  Edit
-                </Button>
-              )}
-              {onDelete && (
-                <Button variant="light" onClick={onDelete} color="red">
-                  Delete
-                </Button>
-              )}
-              {onReset && (
-                <Button variant="light" onClick={onReset} color="yellow">
-                  Reset Stats
-                </Button>
-              )}
-            </Group>
-            {onSelectForBattle && (
-              <Button
-                variant="light"
-                color={isSelected ? 'green' : 'blue'}
-                onClick={onSelectForBattle}
-                disabled={isSelected}
+          <Group gap="xs">
+            {onEdit && (
+              <Button 
+                variant="filled" 
+                onClick={onEdit} 
+                color="custom.5"
+                size="sm"
               >
-                {isSelected ? 'Selected' : 'Select for Battle'}
+                Edit
+              </Button>
+            )}
+            {onDelete && (
+              <Button 
+                variant="filled" 
+                onClick={onDelete} 
+                color="red.7"
+                size="sm"
+              >
+                Delete
+              </Button>
+            )}
+            {onReset && (
+              <Button 
+                variant="filled" 
+                onClick={onReset} 
+                style={{
+                  backgroundColor: '#9B8D27'
+                }}
+                size="sm"
+              >
+                Reset Stats
               </Button>
             )}
           </Group>
         </Group>
 
-        <Group grow>
+        <Group grow gap="md">
           <StatsCard
-            title="ELO Rating"
+            title="ELO RATING"
             value={student.elo_rating}
             icon="🏆"
             description="Current ranking points"
           />
           <StatsCard
-            title="Win Rate"
+            title="WIN RATE"
             value={winRateDisplay}
             icon="📊"
             description={recordDisplay}
@@ -134,8 +124,28 @@ export const StudentCard = React.memo(function StudentCard({
         </Group>
 
         {onViewStats && (
-          <Button variant="subtle" onClick={onViewStats} fullWidth>
+          <Button 
+            variant="subtle" 
+            onClick={onViewStats} 
+            fullWidth
+            color="custom.5"
+            style={{
+              marginTop: theme.spacing.xs
+            }}
+          >
             View Detailed Stats
+          </Button>
+        )}
+
+        {onSelectForBattle && (
+          <Button
+            variant="filled"
+            color="custom.5"
+            onClick={onSelectForBattle}
+            disabled={isSelected}
+            fullWidth
+          >
+            {isSelected ? 'Selected' : 'Select for Battle'}
           </Button>
         )}
       </Stack>
