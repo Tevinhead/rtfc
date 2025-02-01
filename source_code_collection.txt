@@ -2694,7 +2694,8 @@ async def reset_student_stats(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Reset the specified student's statistics to default values.
+    Reset the specified student's statistics to default values,
+    and remove all match history (match_participants, round_participants).
     """
     result = await db.execute(
         select(Student).where(Student.id == student_id)
@@ -2706,7 +2707,19 @@ async def reset_student_stats(
             detail="Student not found"
         )
 
-    # Reset fields to default values
+    # 1) Remove match history
+    #    Remove all RoundParticipants and MatchParticipants rows for this student
+    from sqlalchemy import text
+    await db.execute(
+        text("DELETE FROM round_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+    await db.execute(
+        text("DELETE FROM match_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+
+    # 2) Reset fields to default values
     student.elo_rating = 1000.0
     student.wins = 0
     student.losses = 0
@@ -4044,6 +4057,7 @@ export const ArenaBattle: React.FC<ArenaBattleProps> = ({
       {step === ArenaStep.FINAL_RESULT && (
         <FinalResultScreen
           arenaSession={arenaSession}
+          students={students}
           onReset={onReset}
         />
       )}
@@ -6087,6 +6101,7 @@ File: frontend\src\components\arena\screens\FinalResultScreen.tsx
 
 import React from 'react';
 import { Stack } from '@mantine/core';
+import { Student } from '../../../types';
 import { ErrorAlert } from '../../shared/ErrorAlert';
 import { ErrorBoundary } from '../../shared/ErrorBoundary';
 import { ArenaResultScreen } from '../ArenaResultScreen';
@@ -6095,11 +6110,13 @@ interface FinalResultScreenProps {
   arenaSession: {
     participants: any[];
   } | null;
+  students: Student[];
   onReset: () => void;
 }
 
 export const FinalResultScreen: React.FC<FinalResultScreenProps> = ({
   arenaSession,
+  students,
   onReset,
 }) => {
   if (!arenaSession) {
@@ -6110,7 +6127,13 @@ export const FinalResultScreen: React.FC<FinalResultScreenProps> = ({
     <ErrorBoundary fallback={<ErrorAlert error="Failed to display results" onRetry={onReset} />}>
       <Stack gap="md">
         <ArenaResultScreen
-          results={arenaSession.participants}
+          results={arenaSession.participants.map(participant => {
+            const student = students.find(s => s.id === participant.student_id);
+            return {
+              ...participant,
+              avatar_url: student?.avatar_url
+            };
+          })}
           onFinish={onReset}
         />
       </Stack>
@@ -8636,6 +8659,95 @@ export function BulkOperationsModal({
 
 
 ================================================================================
+File: frontend\src\components\shared\EloTimelineChart.tsx
+================================================================================
+
+import React from 'react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
+} from 'recharts';
+import { Box, Text, MantineTheme } from '@mantine/core';
+
+// Define the type for a data point
+export interface EloDataPoint {
+  date: string; // e.g., formatted date string
+  elo: number;
+}
+
+interface EloTimelineChartProps {
+  data: EloDataPoint[];
+}
+
+/**
+ * CustomTooltip
+ *
+ * A custom tooltip that displays the date and the elo value.
+ */
+const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <Box
+        style={{
+          backgroundColor: '#1A1B1E',
+          padding: '12px',
+          borderRadius: '4px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <Text size="sm" color="gray.0">
+          {label}
+        </Text>
+        <Text size="sm" color="gray.0">
+          ELO: {payload[0].value}
+        </Text>
+      </Box>
+    );
+  }
+
+  return null;
+};
+
+/**
+ * EloTimelineChart
+ *
+ * This component renders a responsive line chart for the ELO history.
+ */
+export const EloTimelineChart: React.FC<EloTimelineChartProps> = ({ data }) => {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart
+        data={data}
+        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 12, fill: '#666' }}
+        />
+        <YAxis tick={{ fontSize: 12, fill: '#666' }} />
+        <Tooltip content={<CustomTooltip />} />
+        <Line
+          type="monotone"
+          dataKey="elo"
+          stroke="#8884d8"
+          strokeWidth={2}
+          dot={{ r: 4 }}
+          activeDot={{ r: 6 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+};
+
+
+
+================================================================================
 File: frontend\src\components\shared\ErrorAlert.tsx
 ================================================================================
 
@@ -8773,7 +8885,7 @@ File: frontend\src\components\shared\Layout.tsx
 ================================================================================
 
 import React from 'react';
-import { Container, Paper } from '@mantine/core';
+import { Container, useMantineTheme } from '@mantine/core';
 import { Navigation } from './Navigation';
 
 interface LayoutProps {
@@ -8781,13 +8893,15 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
+  const theme = useMantineTheme();
+  
   return (
     <Navigation>
       <Container
         fluid
         p={0}
         style={{
-          background: 'linear-gradient(165deg, #1A1B1E 0%, #13151A 100%)',
+          background: `linear-gradient(165deg, ${theme.colors.custom[9]} 0%, ${theme.colors.custom[8]} 100%)`,
           minHeight: '100vh',
           maxWidth: '100vw'
         }}
@@ -8881,7 +8995,8 @@ import {
   UnstyledButton,
   ThemeIcon,
   Box,
-  rem
+  rem,
+  useMantineTheme
 } from '@mantine/core';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -8900,57 +9015,60 @@ interface NavItemProps {
   onClick?: () => void;
 }
 
-const NavItem = ({ icon, label, path, active, onClick }: NavItemProps) => (
-  <UnstyledButton
-    component={Link}
-    to={path}
-    onClick={onClick}
-    style={{
-      display: 'block',
-      width: '100%',
-      padding: rem(12),
-      borderRadius: 'var(--mantine-radius-md)',
-      backgroundColor: active ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        backgroundColor: active
-          ? 'rgba(99, 102, 241, 0.2)'
-          : 'rgba(255, 255, 255, 0.05)',
-        transform: 'translateX(4px)',
-      },
-    }}
-  >
-    <Group>
-      <ThemeIcon
-        variant={active ? "gradient" : "light"}
-        size={36}
-        gradient={active ? { from: 'indigo', to: 'purple' } : undefined}
-        color={active ? undefined : "dark"}
-        style={{
-          transition: 'all 0.2s ease',
-          backgroundColor: active ? undefined : 'rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        {icon}
-      </ThemeIcon>
-      <Text
-        size="sm"
-        c={active ? "indigo.3" : "gray.3"}
-        fw={active ? 600 : 500}
-        style={{
-          transition: 'all 0.2s ease',
-          textShadow: active ? '0 0 20px rgba(99, 102, 241, 0.3)' : 'none',
-        }}
-      >
-        {label}
-      </Text>
-    </Group>
-  </UnstyledButton>
-);
+const NavItem = ({ icon, label, path, active, onClick }: NavItemProps) => {
+  const theme = useMantineTheme();
+  return (
+    <UnstyledButton
+      component={Link}
+      to={path}
+      onClick={onClick}
+      style={{
+        display: 'block',
+        width: '100%',
+        padding: rem(12),
+        borderRadius: 'var(--mantine-radius-md)',
+        backgroundColor: active ? `${theme.colors.custom[5]}20` : 'transparent',
+        transition: 'all 0.2s ease',
+        '&:hover': {
+          backgroundColor: active
+            ? `${theme.colors.custom[5]}30`
+            : `${theme.colors.custom[7]}50`,
+          transform: 'translateX(4px)',
+        },
+      }}
+    >
+      <Group>
+        <ThemeIcon
+          variant={active ? "filled" : "light"}
+          size={36}
+          color={active ? "custom.5" : "dark"}
+          style={{
+            transition: 'all 0.2s ease',
+            backgroundColor: active ? theme.colors.custom[5] : `${theme.colors.custom[7]}50`,
+          }}
+        >
+          {icon}
+        </ThemeIcon>
+        <Text
+          size="sm"
+          c={active ? "custom.5" : "gray.3"}
+          fw={active ? 600 : 500}
+          style={{
+            transition: 'all 0.2s ease',
+            textShadow: active ? `0 0 20px ${theme.colors.custom[5]}40` : 'none',
+          }}
+        >
+          {label}
+        </Text>
+      </Group>
+    </UnstyledButton>
+  );
+};
 
 export function Navigation({ children }: { children: React.ReactNode }) {
   const [opened, setOpened] = useState(false);
   const location = useLocation();
+  const theme = useMantineTheme();
 
   const toggleOpened = useCallback(() => {
     setOpened(o => !o);
@@ -8978,7 +9096,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
       padding="md"
     >
       <AppShell.Header style={{
-        background: 'linear-gradient(135deg, var(--mantine-color-indigo-6) 0%, var(--mantine-color-purple-6) 100%)',
+        background: `linear-gradient(135deg, ${theme.colors.custom[5]} 0%, ${theme.colors.custom[7]} 100%)`,
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
       }}>
         <Group h="100%" px="xl">
@@ -8990,7 +9108,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
             color="white"
           />
           <Group gap="xs">
-            <IconSchool size={30} stroke={1.5} style={{ color: 'white' }} />
+            <IconSchool size={30} stroke={1.5} style={{ color: theme.white }} />
             <Text
               component={Link}
               to="/"
@@ -8998,7 +9116,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
               fw={700}
               style={{
                 textDecoration: 'none',
-                color: 'white',
+                color: theme.white,
                 letterSpacing: '0.5px'
               }}
             >
@@ -9009,7 +9127,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
       </AppShell.Header>
 
       <AppShell.Navbar p="md" style={{
-        background: 'linear-gradient(180deg, var(--mantine-color-dark-7) 0%, var(--mantine-color-dark-8) 100%)',
+        background: theme.colors.custom[7],
         borderRight: 'none',
         boxShadow: '2px 0 8px rgba(0, 0, 0, 0.2)',
       }}>
@@ -9030,18 +9148,18 @@ export function Navigation({ children }: { children: React.ReactNode }) {
 
       <AppShell.Main style={{
         background: `
-          linear-gradient(135deg, var(--mantine-color-dark-8) 0%, var(--mantine-color-dark-7) 100%),
+          linear-gradient(135deg, ${theme.colors.custom[9]} 0%, ${theme.colors.custom[8]} 100%),
           repeating-linear-gradient(45deg,
-            rgba(99, 102, 241, 0.03) 0px,
-            rgba(99, 102, 241, 0.03) 2px,
+            ${theme.colors.custom[5]}05 0px,
+            ${theme.colors.custom[5]}05 2px,
             transparent 2px,
             transparent 12px
           )
         `,
-        color: 'var(--mantine-color-gray-0)',
+        color: theme.white,
       }}>
         <Box p="md" style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
+          backgroundColor: `${theme.colors.custom[9]}80`,
           borderRadius: 'var(--mantine-radius-lg)',
           backdropFilter: 'blur(8px)',
           minHeight: '100%'
@@ -9060,7 +9178,7 @@ File: frontend\src\components\shared\StatsCard.tsx
 ================================================================================
 
 import React, { ReactNode } from 'react';
-import { Paper, Text, Group, ThemeIcon } from '@mantine/core';
+import { Paper, Text, Group, ThemeIcon, useMantineTheme } from '@mantine/core';
 
 interface StatsCardProps {
   title: string;
@@ -9070,18 +9188,26 @@ interface StatsCardProps {
 }
 
 export function StatsCard({ title, value, icon, description }: StatsCardProps) {
+  const theme = useMantineTheme();
+  
   return (
-    <Paper withBorder radius="md" p="md">
+    <Paper 
+      radius="md" 
+      p="md"
+      style={{
+        backgroundColor: theme.colors.custom[7],
+      }}
+    >
       <Group justify="space-between">
         <div>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+          <Text size="xs" c="custom.0" tt="uppercase" fw={700}>
             {title}
           </Text>
-          <Text fw={700} size="xl">
+          <Text fw={700} size="xl" c="custom.0">
             {value}
           </Text>
           {description && (
-            <Text size="xs" c="dimmed" mt={4}>
+            <Text size="xs" c="custom.0" mt={4} opacity={0.7}>
               {description}
             </Text>
           )}
@@ -9089,7 +9215,8 @@ export function StatsCard({ title, value, icon, description }: StatsCardProps) {
         <ThemeIcon
           size={48}
           radius="md"
-          variant="light"
+          variant="filled"
+          color="custom.5"
         >
           {icon}
         </ThemeIcon>
@@ -9105,7 +9232,7 @@ File: frontend\src\components\students\StudentCard.tsx
 ================================================================================
 
 import React, { useMemo } from 'react';
-import { Card, Text, Group, Stack, Button, Avatar, Box } from '@mantine/core';
+import { Card, Text, Group, Stack, Button, Avatar, Box, useMantineTheme } from '@mantine/core';
 import { StatsCard } from '../shared/StatsCard';
 import { Student } from '../../types';
 
@@ -9128,6 +9255,8 @@ export const StudentCard = React.memo(function StudentCard({
   onReset,
   isSelected = false
 }: StudentCardProps) {
+  const theme = useMantineTheme();
+  
   const winRateDisplay = useMemo(() => {
     return `${(student.win_rate * 100).toFixed(1)}%`;
   }, [student.win_rate]);
@@ -9140,99 +9269,87 @@ export const StudentCard = React.memo(function StudentCard({
     <Card
       withBorder
       radius="md"
-      p="md"
+      p="xl"
       style={{
-        border: isSelected ? '2px solid #40a9ff' : '1px solid #e9ecef',
-        transition: 'all 0.2s ease',
+        backgroundColor: theme.colors.custom[8],
+        border: isSelected ? `2px solid ${theme.colors.custom[5]}` : 'none',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
         '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
         }
       }}
     >
-      <Stack>
+      <Stack gap="lg">
         <Group justify="space-between" align="flex-start">
-          <Group gap="xs">
-            <Box
+          <Group gap="md">
+            <Avatar
+              src={student.avatar_url || undefined}
+              alt={student.name}
+              radius="xl"
+              size={60}
               style={{
-                position: 'relative',
-                padding: '4px',
-                borderRadius: '50%',
-                background: 'linear-gradient(45deg, #4dabf7, #228be6)',
-                boxShadow: '0 0 10px rgba(77, 171, 247, 0.3)'
+                border: `2px solid ${theme.colors.custom[5]}`,
+                boxShadow: `0 0 10px ${theme.colors.custom[5]}30`
               }}
             >
-              <Avatar
-                src={student.avatar_url || undefined}
-                alt={student.name}
-                radius="xl"
-                size={60}
-                style={{
-                  border: '2px solid #fff',
-                  transition: 'transform 0.2s ease',
-                  '&:hover': {
-                    transform: 'scale(1.05)'
-                  }
-                }}
-              >
-                {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
-              </Avatar>
-            </Box>
-            <div>
-              <Text 
-                size="lg" 
-                fw={700}
-                style={{
-                  background: 'linear-gradient(45deg, #4dabf7, #228be6)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
-                }}
-              >
-                {student.name}
-              </Text>
-            </div>
+              {(!student.avatar_url && student.name) ? student.name.charAt(0) : ''}
+            </Avatar>
+            <Text 
+              size="xl" 
+              fw={700}
+              c="custom.0"
+            >
+              {student.name}
+            </Text>
           </Group>
 
-          <Group>
-            <Group>
-              {onEdit && (
-                <Button variant="light" onClick={onEdit} color="blue">
-                  Edit
-                </Button>
-              )}
-              {onDelete && (
-                <Button variant="light" onClick={onDelete} color="red">
-                  Delete
-                </Button>
-              )}
-              {onReset && (
-                <Button variant="light" onClick={onReset} color="yellow">
-                  Reset Stats
-                </Button>
-              )}
-            </Group>
-            {onSelectForBattle && (
-              <Button
-                variant="light"
-                color={isSelected ? 'green' : 'blue'}
-                onClick={onSelectForBattle}
-                disabled={isSelected}
+          <Group gap="xs">
+            {onEdit && (
+              <Button 
+                variant="filled" 
+                onClick={onEdit} 
+                color="custom.5"
+                size="sm"
               >
-                {isSelected ? 'Selected' : 'Select for Battle'}
+                Edit
+              </Button>
+            )}
+            {onDelete && (
+              <Button 
+                variant="filled" 
+                onClick={onDelete} 
+                color="red.7"
+                size="sm"
+              >
+                Delete
+              </Button>
+            )}
+            {onReset && (
+              <Button 
+                variant="filled" 
+                onClick={onReset} 
+                style={{
+                  backgroundColor: '#9B8D27'
+                }}
+                size="sm"
+              >
+                Reset Stats
               </Button>
             )}
           </Group>
         </Group>
 
-        <Group grow>
+        <Group grow gap="md">
           <StatsCard
-            title="ELO Rating"
+            title="ELO RATING"
             value={student.elo_rating}
             icon="🏆"
             description="Current ranking points"
           />
           <StatsCard
-            title="Win Rate"
+            title="WIN RATE"
             value={winRateDisplay}
             icon="📊"
             description={recordDisplay}
@@ -9240,8 +9357,28 @@ export const StudentCard = React.memo(function StudentCard({
         </Group>
 
         {onViewStats && (
-          <Button variant="subtle" onClick={onViewStats} fullWidth>
+          <Button 
+            variant="subtle" 
+            onClick={onViewStats} 
+            fullWidth
+            color="custom.5"
+            style={{
+              marginTop: theme.spacing.xs
+            }}
+          >
             View Detailed Stats
+          </Button>
+        )}
+
+        {onSelectForBattle && (
+          <Button
+            variant="filled"
+            color="custom.5"
+            onClick={onSelectForBattle}
+            disabled={isSelected}
+            fullWidth
+          >
+            {isSelected ? 'Selected' : 'Select for Battle'}
           </Button>
         )}
       </Stack>
@@ -9419,7 +9556,7 @@ File: frontend\src\components\students\StudentList.tsx
 ================================================================================
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { Grid, TextInput, Group, Modal, Stack, Alert } from '@mantine/core';
+import { Grid, TextInput, Group, Modal, Stack, Alert, useMantineTheme } from '@mantine/core';
 import { StudentCard } from './StudentCard';
 import { StudentStats } from './StudentStats';
 import { Student } from '../../types';
@@ -9448,8 +9585,8 @@ export function StudentList({
 }: StudentListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const theme = useMantineTheme();
 
-  // Memoize handlers
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.currentTarget.value);
   }, []);
@@ -9474,7 +9611,6 @@ export function StudentList({
     }
   }, [onEdit]);
 
-  // Memoize filtered students
   const filteredStudents = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return students.filter(student =>
@@ -9483,7 +9619,7 @@ export function StudentList({
   }, [students, searchQuery]);
 
   return (
-    <Stack gap="md">
+    <Stack gap="xl">
       {loading && <LoadingOverlay visible={true} />}
 
       {error && (
@@ -9500,12 +9636,32 @@ export function StudentList({
               value={searchQuery}
               onChange={handleSearchChange}
               style={{ flex: 1 }}
+              styles={{
+                input: {
+                  backgroundColor: theme.colors.custom[7],
+                  color: theme.colors.custom[0],
+                  border: `1px solid ${theme.colors.custom[5]}30`,
+                  '&::placeholder': {
+                    color: theme.colors.custom[0],
+                    opacity: 0.5,
+                  },
+                  '&:focus': {
+                    borderColor: theme.colors.custom[5],
+                  },
+                },
+              }}
             />
           </Group>
 
-          <Grid>
+          <Grid gutter="xl">
             {filteredStudents.map((student) => (
-              <Grid.Col key={student.id} span={{ base: 12, sm: 6, lg: 4 }}>
+              <Grid.Col 
+                key={student.id} 
+                span={{ base: 12, sm: 6, lg: 4 }}
+                style={{
+                  marginBottom: theme.spacing.xl,
+                }}
+              >
                 <StudentCard
                   student={student}
                   onViewStats={() => handleViewStats(student)}
@@ -9524,6 +9680,15 @@ export function StudentList({
             onClose={handleCloseStats}
             title={selectedStudent?.name + "'s Statistics"}
             size="xl"
+            styles={{
+              header: {
+                backgroundColor: theme.colors.custom[9],
+                color: theme.colors.custom[0],
+              },
+              content: {
+                backgroundColor: theme.colors.custom[9],
+              },
+            }}
           >
             {selectedStudent && (
               <StudentStats
@@ -9546,7 +9711,7 @@ File: frontend\src\components\students\StudentStats.tsx
 import React, { useEffect, useMemo } from 'react';
 import { Card, Text, Stack, Grid, Table, Center, Avatar, Group, Box, Badge, Title } from '@mantine/core';
 import { motion } from 'framer-motion';
-import { LineChart } from '@mantine/charts';
+import { EloTimelineChart } from '../shared/EloTimelineChart';
 import { StatsCard } from '../shared/StatsCard';
 import { Student } from '../../types';
 import { useStudentStore } from '../../stores';
@@ -9745,13 +9910,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
             </Text>
           </Center>
         ) : (
-          <LineChart
-            data={eloTimeline}
-            dataKey="date"
-            series={[{ name: 'elo', color: 'blue' }]}
-            w="100%"
-            h={300}
-          />
+          <EloTimelineChart data={eloTimeline} />
         )}
       </Card>
 
@@ -9941,16 +10100,25 @@ export const useArenaBattleSounds = (step: ArenaStep) => {
     stopBattleSound,
     playVsSound,
     playResultSound,
+    stopResultSound,
+    playRoundResultSound,
   } = useSound();
 
   useEffect(() => {
     switch (step) {
       case ArenaStep.VERSUS:
         stopBattleSound();
+        stopResultSound();
         playVsSound();
         break;
       case ArenaStep.BATTLE:
+        stopResultSound();
         playBattleSound();
+        break;
+      case ArenaStep.ROUND_RESULT:
+        stopBattleSound();
+        stopResultSound();
+        playRoundResultSound();
         break;
       case ArenaStep.FINAL_RESULT:
         stopBattleSound();
@@ -9958,10 +10126,12 @@ export const useArenaBattleSounds = (step: ArenaStep) => {
         break;
       default:
         stopBattleSound();
+        stopResultSound();
         break;
     }
     return () => {
       stopBattleSound();
+      stopResultSound();
     };
   }, [step, playBattleSound, stopBattleSound, playVsSound, playResultSound]);
 };
@@ -10206,16 +10376,18 @@ File: frontend\src\hooks\useSound.ts
 import { useEffect, useRef, useCallback } from 'react';
 
 // Sound files are in public/sounds
-const battleSoundURL = '/sounds/battle-sound.wav';
-const vsScreenSoundURL = '/sounds/vs-screen-sound.wav';
-const resultScreenSoundURL = '/sounds/result-screen-sound.wav';
+const battleSoundURL = '/sounds/battle-sound.mp3';
+const vsScreenSoundURL = '/sounds/vs-screen-sound.mp3';
+const resultScreenSoundURL = '/sounds/result-screen-sound.mp3';
+const roundResultSoundURL = '/sounds/round-result-sound.mp3';
 
 /**
  * This hook manages playing/stopping background and one-shot sounds.
  */
 export const useSound = () => {
-  // We'll keep one "looped" audio ref for the BATTLE step
+  // Keep refs for audio that needs to be stopped
   const battleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const resultAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize the battle-sound Audio object once
   useEffect(() => {
@@ -10270,8 +10442,30 @@ export const useSound = () => {
   const playResultSound = useCallback(() => {
     const audio = new Audio(resultScreenSoundURL);
     audio.volume = 0.35;
+    resultAudioRef.current = audio;
     audio.play().catch((err) => {
       console.error('Failed to play result-screen-sound:', err);
+    });
+  }, []);
+
+  /**
+   * Stop the result sound.
+   */
+  const stopResultSound = useCallback(() => {
+    if (resultAudioRef.current) {
+      resultAudioRef.current.pause();
+      resultAudioRef.current.currentTime = 0;
+    }
+  }, []);
+
+  /**
+   * Play the round result screen sound once (100% volume).
+   */
+  const playRoundResultSound = useCallback(() => {
+    const audio = new Audio(roundResultSoundURL);
+    audio.volume = 1.0;
+    audio.play().catch((err) => {
+      console.error('Failed to play round-result-sound:', err);
     });
   }, []);
 
@@ -10287,6 +10481,8 @@ export const useSound = () => {
     stopBattleSound,
     playVsSound,
     playResultSound,
+    stopResultSound,
+    playRoundResultSound,
     playSound, // Keep existing usage safe
   };
 };
@@ -10819,7 +11015,7 @@ File: frontend\src\pages\StudentsPage.tsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StudentList } from '../components/students/StudentList';
 import { StudentForm } from '../components/students/StudentForm';
-import { Title, Alert, Button, Modal, Group, Text, Stack, Card, Center, Box } from '@mantine/core';
+import { Title, Alert, Button, Modal, Group, Text, Stack, Card, Box, useMantineTheme } from '@mantine/core';
 import { useStudentStore } from '../stores';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import { Student } from '../types';
@@ -10830,6 +11026,7 @@ export function StudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const theme = useMantineTheme();
 
   useEffect(() => {
     fetchStudents();
@@ -10907,39 +11104,62 @@ export function StudentsPage() {
   }
 
   return (
-    <Box>
-      <Center py="xl">
-        <Card w="90%" maw={1200}>
-          <Stack gap="lg">
-            <Group justify="space-between">
-              <Title order={2}>Students</Title>
-              <Button
-                leftSection={<IconPlus size={16} />}
-                onClick={handleAddClick}
-                color="teal"
-              >
-                Add Student
-              </Button>
-            </Group>
+    <Box
+      style={{
+        backgroundColor: theme.colors.custom[9],
+        minHeight: '100vh',
+        padding: theme.spacing.xl,
+      }}
+    >
+      <Card 
+        p="xl"
+        radius="lg"
+        style={{
+          backgroundColor: 'transparent',
+          border: 'none',
+        }}
+      >
+        <Stack gap="xl">
+          <Group justify="space-between" align="center">
+            <Title order={2} c="custom.0">Students</Title>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={handleAddClick}
+              color="custom.5"
+              variant="filled"
+              radius="md"
+              size="md"
+            >
+              Add Student
+            </Button>
+          </Group>
 
-            <Card>
-              <StudentList 
-                students={students} 
-                onEdit={handleEdit}
-                onDelete={handleDeleteClick}
-                onReset={handleReset}
-                loading={loading}
-                error={error}
-              />
-            </Card>
-          </Stack>
-        </Card>
-      </Center>
+          <Box>
+            <StudentList 
+              students={students} 
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              onReset={handleReset}
+              loading={loading}
+              error={error}
+            />
+          </Box>
+        </Stack>
+      </Card>
 
       <Modal
         opened={formModalOpen}
         onClose={handleModalClose}
         title={modalTitle}
+        styles={{
+          header: {
+            backgroundColor: theme.colors.custom[7],
+            color: theme.colors.custom[0],
+          },
+          content: {
+            backgroundColor: theme.colors.custom[7],
+          },
+        }}
       >
         <StudentForm
           student={selectedStudent}
@@ -10952,12 +11172,35 @@ export function StudentsPage() {
         opened={deleteModalOpen}
         onClose={handleDeleteCancel}
         title="Delete Student"
+        styles={{
+          header: {
+            backgroundColor: theme.colors.custom[7],
+            color: theme.colors.custom[0],
+          },
+          content: {
+            backgroundColor: theme.colors.custom[7],
+          },
+        }}
       >
         <Stack>
-          <Text>Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.</Text>
+          <Text c="custom.0">
+            Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.
+          </Text>
           <Group justify="flex-end">
-            <Button variant="light" color="teal" onClick={handleDeleteCancel}>Cancel</Button>
-            <Button color="red" variant="filled" onClick={handleDeleteConfirm}>Delete</Button>
+            <Button 
+              variant="filled" 
+              color="custom.5"
+              onClick={handleDeleteCancel}
+            >
+              Cancel
+            </Button>
+            <Button 
+              color="red.7"
+              variant="filled" 
+              onClick={handleDeleteConfirm}
+            >
+              Delete
+            </Button>
           </Group>
         </Stack>
       </Modal>
@@ -13092,15 +13335,21 @@ const createStore = (baseSet: any, get: any, _store: any): StudentStoreState => 
       try {
         const response = await studentApi.resetStats(studentId);
         
-        // Update student in store
-        set((state) => ({
-          ...state,
-          students: state.students.map((student) =>
-            student.id === studentId ? response.data.data : student
-          ),
-          loading: false,
-          error: null
-        }));
+        // Update student in store and clear their match history
+        set((state) => {
+          const updatedHistory = { ...state.studentHistory };
+          delete updatedHistory[studentId]; // Remove their entire history
+
+          return {
+            ...state,
+            students: state.students.map((student) =>
+              student.id === studentId ? response.data.data : student
+            ),
+            studentHistory: updatedHistory,
+            loading: false,
+            error: null
+          };
+        });
 
         // Reset arena state if the student is in the current session
         const battleStore = useBattleStore.getState();
@@ -13321,53 +13570,41 @@ File: frontend\src\theme\index.ts
 import { createTheme, MantineTheme } from '@mantine/core';
 
 export const theme = createTheme({
-  primaryColor: 'indigo',
+  primaryColor: 'custom',
 
   colors: {
-    indigo: [
-      '#EEF2FF',
-      '#E0E7FF',
-      '#C7D2FE',
-      '#A5B4FC',
-      '#818CF8',
-      '#6366F1',
-      '#4F46E5',
-      '#4338CA',
-      '#3730A3',
-      '#312E81',
-    ],
-    purple: [
-      '#FAF5FF',
-      '#F3E8FF',
-      '#E9D5FF',
-      '#D8B4FE',
-      '#C084FC',
-      '#A855F7',
-      '#9333EA',
-      '#7E22CE',
-      '#6B21A8',
-      '#581C87',
+    custom: [
+      '#EEEEEE', // 0 - Lightest
+      '#DDDDDD', // 1
+      '#CCCCCC', // 2
+      '#66C3C8', // 3
+      '#33B6BC', // 4
+      '#00ADB5', // 5 - Primary accent
+      '#009199', // 6
+      '#393E46', // 7 - Secondary dark
+      '#2C3238', // 8
+      '#222831', // 9 - Primary dark
     ],
     dark: [
-      '#C1C2C5',
-      '#A6A7AB',
-      '#909296',
-      '#5C5F66',
-      '#373A40',
-      '#2C2E33',
-      '#25262B',
-      '#1A1B1E',
-      '#141517',
-      '#101113',
+      '#EEEEEE', // 0 - Light text
+      '#DDDDDD', // 1
+      '#CCCCCC', // 2
+      '#BBBBBB', // 3
+      '#393E46', // 4
+      '#2C3238', // 5
+      '#272B33', // 6
+      '#22262D', // 7
+      '#1D2026', // 8
+      '#222831', // 9 - Darkest background
     ],
   },
 
-  white: '#FFFFFF',
-  black: '#1A1B1E',
+  white: '#EEEEEE',
+  black: '#222831',
   
   defaultGradient: {
-    from: 'indigo.6',
-    to: 'purple.6',
+    from: 'custom.5',
+    to: 'custom.7',
     deg: 45,
   },
 
@@ -13407,6 +13644,8 @@ export const theme = createTheme({
       },
       styles: (theme: MantineTheme) => ({
         root: {
+          backgroundColor: theme.colors.custom[7],
+          color: theme.colors.custom[0],
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           '&:hover': {
             transform: 'translateY(-4px)',
@@ -13417,12 +13656,15 @@ export const theme = createTheme({
     },
     AppShell: {
       styles: (theme: MantineTheme) => ({
+        main: {
+          backgroundColor: theme.colors.custom[9],
+        },
         header: {
-          background: `linear-gradient(135deg, ${theme.colors.blue[6]} 0%, ${theme.colors.blue[9]} 100%)`,
+          background: theme.colors.custom[7],
           borderBottom: 'none',
         },
         navbar: {
-          backgroundColor: theme.white,
+          backgroundColor: theme.colors.custom[7],
           border: 'none',
           boxShadow: theme.shadows.sm,
         },

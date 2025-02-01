@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { Card, Text, Stack, Grid, Table, Center, Avatar, Group, Box, Badge, Title } from '@mantine/core';
 import { motion } from 'framer-motion';
-import { LineChart } from '@mantine/charts';
+import { EloTimelineChart } from '../shared/EloTimelineChart';
 import { StatsCard } from '../shared/StatsCard';
 import { Student } from '../../types';
 import { useStudentStore } from '../../stores';
@@ -200,13 +200,7 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
             </Text>
           </Center>
         ) : (
-          <LineChart
-            data={eloTimeline}
-            dataKey="date"
-            series={[{ name: 'elo', color: 'blue' }]}
-            w="100%"
-            h={300}
-          />
+          <EloTimelineChart data={eloTimeline} />
         )}
       </Card>
 
