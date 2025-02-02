@@ -11,6 +11,9 @@ from ..database import get_db
 from ..models.student import Student
 from ..models.match import Match, MatchStatus, MatchParticipant
 from ..models.flashcard import Flashcard
+from ..models.achievement import Achievement
+from ..services import achievement_service
+from ..schemas.achievement import StudentAchievementResponse
 
 T = TypeVar('T')
 
@@ -155,6 +158,70 @@ async def delete_student(
 
     await db.delete(student)
     await db.commit()
+
+@router.get("/{student_id}/achievements", response_model=List[StudentAchievementResponse])
+async def get_student_achievements(student_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Get all achievements earned by a specific student."""
+    # Verify student exists
+    student = await db.get(Student, student_id)
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+    
+    # Get student achievements
+    student_achievements = await achievement_service.get_student_achievements(student_id, db)
+    
+    # Load the full achievement data for each student achievement
+    result = []
+    for sa in student_achievements:
+        achievement = await db.get(Achievement, sa.achievement_id)
+        if achievement:
+            result.append({
+                "id": sa.id,
+                "student_id": sa.student_id,
+                "achievement": achievement,
+                "achieved_at": sa.achieved_at
+            })
+    
+    return result
+
+@router.post("/{student_id}/evaluate-achievements")
+async def evaluate_student_achievements(
+    student_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Evaluate achievements for a student based on their match history"""
+    # Get student
+    student = await db.get(Student, student_id)
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+
+    # Get all matches for this student
+    result = await db.execute(
+        select(Match).where(
+            (Match.player1_id == student_id) | (Match.player2_id == student_id)
+        )
+    )
+    matches = result.scalars().all()
+
+    print(f"[Achievement Debug] Evaluating achievements for existing student {student_id}")
+    print(f"[Achievement Debug] Found {len(matches)} matches to evaluate")
+    
+    # Evaluate achievements
+    newly_earned = await achievement_service.evaluate_student_achievements(student, matches, db)
+    
+    return {
+        "data": {
+            "evaluated_matches": len(matches),
+            "new_achievements": len(newly_earned),
+            "achievement_codes": [a.code for a in newly_earned]
+        }
+    }
 
 @router.get("/{student_id}/stats", response_model=DataResponse[StudentResponse])
 async def get_student_stats(

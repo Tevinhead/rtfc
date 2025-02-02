@@ -1,9 +1,11 @@
 from logging.config import fileConfig
 import os
+import asyncio
 from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
 from alembic import context
 
 # Load environment variables
@@ -15,11 +17,13 @@ from pathlib import Path
 # Add the parent directory to sys.path
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Import models and Base
+# Import all models and Base
 from app.database import Base
 import app.models.student
 import app.models.flashcard
 import app.models.match
+import app.models.achievement
+import app.models.arena_session
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -36,63 +40,79 @@ target_metadata = Base.metadata
 # Get database URL from environment
 db_url = os.getenv("DATABASE_URL")
 if not db_url:
-    raise ValueError("DATABASE_URL must be set")
+    raise ValueError("DATABASE_URL environment variable must be set")
 
 # Replace postgresql:// with postgresql+asyncpg:// for async SQLAlchemy
 if db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# Override sqlalchemy.url in alembic.ini
 config.set_main_option("sqlalchemy.url", db_url)
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
-
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    """Run migrations in sync mode"""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,  # Compare column types
+        compare_server_default=True,  # Compare server defaults
+    )
 
     with context.begin_transaction():
         context.run_migrations()
 
-
 async def run_async_migrations() -> None:
-    """In this scenario we need to create an Engine
-    and associate a connection with the context.
-    """
-    configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = db_url
+    """Run migrations in async mode"""
+    try:
+        configuration = config.get_section(config.config_ini_section, {})
+        configuration["sqlalchemy.url"] = db_url
 
-    connectable = async_engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+        # Configure async engine with proper pooling and timeout settings
+        connectable = async_engine_from_config(
+            configuration,
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+            connect_args={
+                "command_timeout": 60,  # 60 second timeout
+                "server_settings": {
+                    "application_name": "alembic",  # Identify migrations in pg_stat_activity
+                }
+            }
+        )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
 
-    await connectable.dispose()
-
+        await connectable.dispose()
+    except Exception as e:
+        print(f"Error during migration: {str(e)}")
+        raise
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
+def run_migrations() -> None:
+    """Run migrations based on context mode"""
+    if context.is_offline_mode():
+        run_migrations_offline()
+    else:
+        try:
+            asyncio.run(run_async_migrations())
+        except Exception as e:
+            print(f"Migration failed: {str(e)}")
+            raise
 
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    import asyncio
-    asyncio.run(run_async_migrations())
+# Execute migrations
+run_migrations()

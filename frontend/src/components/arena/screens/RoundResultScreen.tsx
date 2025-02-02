@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Global, css } from '@emotion/react';
 import {
@@ -13,11 +13,9 @@ import {
   Button,
   Box,
   useMantineTheme,
-  rem,
 } from '@mantine/core';
 import { IconArrowUp, IconArrowDown, IconConfetti, IconCrown } from '@tabler/icons-react';
-import { Student, ArenaMatch } from '../../../types';
-import { achievementsConfig } from '../../../achievements/achievementsConfig';
+import { Student, ArenaMatch, StudentAchievementResponse } from '../../../types';
 import { getStudentAchievements } from '../../../achievements/getStudentAchievements';
 import { FullScreenWrapper } from './FullScreenWrapper';
 
@@ -36,9 +34,31 @@ export const RoundResultScreen: React.FC<RoundResultScreenProps> = ({
 }) => {
   const theme = useMantineTheme();
 
+  // State for achievements
+  const [p1Achievements, setP1Achievements] = useState<StudentAchievementResponse[]>([]);
+  const [p2Achievements, setP2Achievements] = useState<StudentAchievementResponse[]>([]);
+
   // Identify each player from the students array
   const player1 = students.find((s) => s.id === currentMatch.player1_id);
   const player2 = students.find((s) => s.id === currentMatch.player2_id);
+
+  // Fetch achievements for both players
+  useEffect(() => {
+    async function fetchPlayerAchievements() {
+      if (!player1 || !player2) return;
+      try {
+        const [p1Response, p2Response] = await Promise.all([
+          getStudentAchievements(player1.id),
+          getStudentAchievements(player2.id)
+        ]);
+        setP1Achievements(p1Response);
+        setP2Achievements(p2Response);
+      } catch (err) {
+        console.error('Failed to fetch achievements:', err);
+      }
+    }
+    void fetchPlayerAchievements();
+  }, [player1, player2]);
 
   // Safeguard
   if (!player1 || !player2) {
@@ -73,16 +93,6 @@ export const RoundResultScreen: React.FC<RoundResultScreenProps> = ({
   const isP1Winner = currentMatch.winner_ids?.includes(player1.id) || false;
   const isP2Winner = currentMatch.winner_ids?.includes(player2.id) || false;
 
-  // Achievements for each player
-  const p1Unlocked = getStudentAchievements(player1, []);
-  const p2Unlocked = getStudentAchievements(player2, []);
-
-  const p1Achievements = achievementsConfig.filter((ach) =>
-    p1Unlocked.includes(ach.id)
-  );
-  const p2Achievements = achievementsConfig.filter((ach) =>
-    p2Unlocked.includes(ach.id)
-  );
 
   // Animations
   const containerVariants = {
@@ -399,14 +409,14 @@ export const RoundResultScreen: React.FC<RoundResultScreenProps> = ({
                                   Achievements:
                                 </Text>
                                 <Group gap="xs">
-                                  {achievements.map((ach) => (
+                                  {achievements.map((achievementRecord: StudentAchievementResponse) => (
                                     <Badge
-                                      key={ach.id}
+                                      key={achievementRecord.id}
                                       size="md"
-                                      color={ach.color}
                                       variant="filled"
+                                      color="violet"
                                     >
-                                      {ach.title}
+                                      {achievementRecord.achievement.title}
                                     </Badge>
                                   ))}
                                 </Group>

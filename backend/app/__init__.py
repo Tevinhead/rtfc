@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # Import routers
-from .routers import flashcards, students, matches, arena, flashcard_stats
+from .routers import flashcards, students, matches, arena, flashcard_stats, achievements
 
 # Include routers
 app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcards"])
@@ -25,3 +25,4 @@ app.include_router(students.router, prefix="/api/students", tags=["students"])
 app.include_router(matches.router, prefix="/api/matches", tags=["matches"])
 app.include_router(arena.router, prefix="/api/arena", tags=["arena"])
 app.include_router(flashcard_stats.router, prefix="/api/stats", tags=["statistics"])
+app.include_router(achievements.router, prefix="/api/achievements", tags=["achievements"])

@@ -224,6 +224,24 @@ export interface MatchHistoryItem {
 // Test Helper Types
 export type ArenaParticipantTestData = Pick<ArenaStudentStats, 'student_id' | 'student' | 'elo_before' | 'elo_after' | 'wins' | 'losses'>;
 
+// Achievement Types
+export interface Achievement {
+  id: string;
+  code: string;
+  title: string;
+  description?: string;
+  criteria?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentAchievementResponse {
+  id: string;
+  student_id: string;
+  achievement: Achievement;
+  achieved_at: string;
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   data: T;

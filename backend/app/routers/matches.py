@@ -50,6 +50,7 @@ from ..database import get_db
 from ..models.student import Student
 from ..services.matchmaking_service import MatchmakingService
 from ..services.elo_service import EloService
+from ..services import achievement_service
 
 class CreateMultiplayerMatchRequest(BaseModel):
     player_ids: conlist(UUID, min_length=2)  # At least 2 players required
@@ -210,6 +211,31 @@ async def update_match_status(
         winner.total_matches += 1
         loser.losses += 1
         loser.total_matches += 1
+
+        # Get all matches for achievement evaluation
+        result = await db.execute(
+            select(Match).where(
+                (Match.player1_id == winner.id) | (Match.player2_id == winner.id)
+            )
+        )
+        winner_matches = result.scalars().all()
+        
+        result = await db.execute(
+            select(Match).where(
+                (Match.player1_id == loser.id) | (Match.player2_id == loser.id)
+            )
+        )
+        loser_matches = result.scalars().all()
+
+        print(f"[Match Debug] Evaluating achievements for winner {winner.id} (ELO: {winner.elo_rating})")
+        winner_achievements = await achievement_service.evaluate_student_achievements(winner, winner_matches, db)
+        if winner_achievements:
+            print(f"[Match Debug] Winner earned {len(winner_achievements)} new achievements")
+        
+        print(f"[Match Debug] Evaluating achievements for loser {loser.id} (ELO: {loser.elo_rating})")
+        loser_achievements = await achievement_service.evaluate_student_achievements(loser, loser_matches, db)
+        if loser_achievements:
+            print(f"[Match Debug] Loser earned {len(loser_achievements)} new achievements")
     
     # Handle other status changes
     else:
@@ -374,6 +400,13 @@ async def set_round_winner(
                 winner_counts[r.winner_id] = winner_counts.get(r.winner_id, 0) + 1
         if winner_counts:
             match.winner_id = max(winner_counts.items(), key=lambda x: x[1])[0]
+            
+            # Get players to evaluate achievements
+            winner = await db.get(Student, match.winner_id)
+            loser_id = next(id for id in students.keys() if id != match.winner_id)
+            loser = students[loser_id]
+            
+            # Remove duplicate achievement evaluation since we already do it in update_match_status
     
     await db.commit()
     await db.refresh(round)

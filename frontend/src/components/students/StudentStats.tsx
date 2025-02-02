@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Text, Stack, Grid, Table, Center, Avatar, Group, Box, Badge, Title } from '@mantine/core';
 import { motion } from 'framer-motion';
 import { EloTimelineChart } from '../shared/EloTimelineChart';
 import { StatsCard } from '../shared/StatsCard';
-import { Student } from '../../types';
+import { Student, StudentAchievementResponse } from '../../types';
 import { useStudentStore } from '../../stores';
-import { achievementsConfig } from '../../achievements/achievementsConfig';
 import { getStudentAchievements } from '../../achievements/getStudentAchievements';
 
 interface StudentStatsProps {
@@ -43,18 +42,20 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
     [student.wins, student.losses]
   );
 
-  // 1) Figure out which achievements are unlocked
-  const unlockedIds = useMemo(() => {
-    return getStudentAchievements(student, historyData);
-  }, [student, historyData]);
+  // Fetch student's achievements
+  const [studentAchievements, setStudentAchievements] = useState<StudentAchievementResponse[]>([]);
 
-  // 2) Build a combined list (locked + unlocked) with an `isUnlocked` flag
-  const allAchievements = useMemo(() => {
-    return achievementsConfig.map((achievement) => ({
-      ...achievement,
-      isUnlocked: unlockedIds.includes(achievement.id),
-    }));
-  }, [unlockedIds]);
+  useEffect(() => {
+    async function fetchAchievements() {
+      try {
+        const achievements = await getStudentAchievements(student.id);
+        setStudentAchievements(achievements);
+      } catch (err) {
+        console.error('Failed to fetch achievements:', err);
+      }
+    }
+    void fetchAchievements();
+  }, [student.id]);
 
   return (
     <Stack gap="lg">
@@ -139,52 +140,39 @@ export const StudentStats = React.memo(function StudentStats({ student }: Studen
       <Card withBorder radius="md" p="md">
         <Title order={3} mb="md">Achievements</Title>
         <Group gap="lg">
-          {/* 
-            3) Always display all achievements. 
-               If isUnlocked = true, show normal style.
-               Else, show a gray/"locked" style.
-          */}
-          {allAchievements.map((ach) => (
-            <Card
-              key={ach.id}
-              shadow="md"
-              p="md"
-              radius="md"
-              withBorder
-              style={{
-                width: 180,
-                textAlign: 'center',
-                background: ach.isUnlocked
-                  ? 'rgba(255,255,255,0.05)'
-                  : 'rgba(255,255,255,0.02)',
-              }}
-            >
-              <Badge
-                color={ach.isUnlocked ? ach.color : 'gray'}
-                variant={ach.isUnlocked ? 'filled' : 'outline'}
-                size="lg"
-                style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
-                leftSection={ach.isUnlocked ? undefined : null}
+          {studentAchievements.length > 0 ? (
+            studentAchievements.map((achievementRecord) => (
+              <Card
+                key={achievementRecord.id}
+                shadow="md"
+                p="md"
+                radius="md"
+                withBorder
+                style={{
+                  width: 180,
+                  textAlign: 'center',
+                  background: 'rgba(255,255,255,0.05)',
+                }}
               >
-                {ach.title}
-              </Badge>
-              <Text
-                size="sm"
-                color={ach.isUnlocked ? 'dimmed' : 'gray'}
-              >
-                {ach.description}
-              </Text>
-              {/* 
-                If not unlocked, let's show a small "Locked" label 
-                or any subtle hint that it's not unlocked yet
-              */}
-              {!ach.isUnlocked && (
-                <Text size="xs" color="dimmed" mt="xs">
-                  Locked
+                <Badge
+                  color="violet"
+                  size="lg"
+                  variant="filled"
+                  style={{ fontSize: '1rem', marginBottom: '0.5rem' }}
+                >
+                  {achievementRecord.achievement.title}
+                </Badge>
+                <Text size="sm" color="dimmed">
+                  {achievementRecord.achievement.description || 'No description provided'}
                 </Text>
-              )}
-            </Card>
-          ))}
+                <Text size="xs" color="gray" mt="xs">
+                  Achieved on: {new Date(achievementRecord.achieved_at).toLocaleDateString()}
+                </Text>
+              </Card>
+            ))
+          ) : (
+            <Text>No achievements unlocked yet.</Text>
+          )}
         </Group>
       </Card>
 
