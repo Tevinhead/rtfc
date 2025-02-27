@@ -172,26 +172,35 @@ async def update_match_status(
             raise HTTPException(status_code=400, detail="Cannot restart a completed match")
         match.status = MatchStatus.IN_PROGRESS
     
-    # Handle transition to COMPLETED
+        # Handle transition to COMPLETED
     elif new_status == MatchStatus.COMPLETED:
         if not request.winner_id:
             raise HTTPException(status_code=400, detail="Winner ID required to complete match")
         
+        # Get all match participants
+        result = await db.execute(
+            select(MatchParticipant).where(MatchParticipant.match_id == match_id)
+        )
+        participants = result.scalars().all()
+        participant_ids = [p.student_id for p in participants]
+        
         # Validate winner is part of the match
-        if request.winner_id not in [match.player1_id, match.player2_id]:
+        if request.winner_id not in participant_ids:
             raise HTTPException(status_code=400, detail="Winner must be a player in this match")
         
-        # Get players to update their stats
-        player1 = await db.get(Student, match.player1_id)
-        player2 = await db.get(Student, match.player2_id)
+        # Get all players to update their stats
+        result = await db.execute(
+            select(Student).where(Student.id.in_(participant_ids))
+        )
+        students = {s.id: s for s in result.scalars().all()}
         
-        # Determine winner and loser
-        winner = player1 if request.winner_id == player1.id else player2
-        loser = player2 if request.winner_id == player1.id else player1
+        # Determine winner and losers
+        winner = students[request.winner_id]
+        losers = [s for id, s in students.items() if id != request.winner_id]
         
-        # Update match status and winner
+        # Update match status and winner_ids
         match.status = MatchStatus.COMPLETED
-        match.winner_id = request.winner_id
+        match.winner_ids = [request.winner_id]  # Store as array
         
         # Calculate total ELO changes from rounds
         result = await db.execute(
@@ -206,26 +215,29 @@ async def update_match_status(
         match.player1_elo_change = total_p1_change
         match.player2_elo_change = total_p2_change
         
-        # Update match stats
+        # Update match stats for all players
         winner.wins += 1
         winner.total_matches += 1
-        loser.losses += 1
-        loser.total_matches += 1
+        for loser in losers:
+            loser.losses += 1
+            loser.total_matches += 1
 
-        # Get all matches for achievement evaluation
+        # Get all matches for achievement evaluation using participants
         result = await db.execute(
-            select(Match).where(
-                (Match.player1_id == winner.id) | (Match.player2_id == winner.id)
+            select(Match).join(MatchParticipant).where(
+                MatchParticipant.student_id == winner.id
             )
         )
         winner_matches = result.scalars().all()
         
-        result = await db.execute(
-            select(Match).where(
-                (Match.player1_id == loser.id) | (Match.player2_id == loser.id)
+        # Get matches for all losers
+        for loser in losers:
+            result = await db.execute(
+                select(Match).join(MatchParticipant).where(
+                    MatchParticipant.student_id == loser.id
+                )
             )
-        )
-        loser_matches = result.scalars().all()
+            loser_matches = result.scalars().all()
 
         print(f"[Match Debug] Evaluating achievements for winner {winner.id} (ELO: {winner.elo_rating})")
         winner_achievements = await achievement_service.evaluate_student_achievements(winner, winner_matches, db)
@@ -393,20 +405,57 @@ async def set_round_winner(
     match.rounds_completed += 1
     if match.rounds_completed >= match.num_rounds:
         match.status = MatchStatus.COMPLETED
-        # Optionally set match winner based on most rounds won
+        # Set match winner based on most rounds won
         winner_counts = {}
         for r in match.rounds:
             if r.winner_id:
                 winner_counts[r.winner_id] = winner_counts.get(r.winner_id, 0) + 1
         if winner_counts:
-            match.winner_id = max(winner_counts.items(), key=lambda x: x[1])[0]
+            winner_id = max(winner_counts.items(), key=lambda x: x[1])[0]
+            match.winner_ids = [winner_id]  # Store as array
             
-            # Get players to evaluate achievements
-            winner = await db.get(Student, match.winner_id)
-            loser_id = next(id for id in students.keys() if id != match.winner_id)
-            loser = students[loser_id]
+            # Get winner and losers
+            result = await db.execute(
+                select(Student).where(Student.id.in_(student_ids))
+            )
+            students = {s.id: s for s in result.scalars().all()}
+            winner = students[winner_id]
+            losers = [s for id, s in students.items() if id != winner_id]
             
-            # Remove duplicate achievement evaluation since we already do it in update_match_status
+            # Update match stats
+            winner.wins += 1
+            winner.total_matches += 1
+            for loser in losers:
+                loser.losses += 1
+                loser.total_matches += 1
+            
+            # Get all matches for achievement evaluation
+            result = await db.execute(
+                select(Match).join(MatchParticipant).where(
+                    MatchParticipant.student_id == winner.id
+                )
+            )
+            winner_matches = result.scalars().all()
+            
+            # Evaluate achievements for winner
+            print(f"[Match Debug] Evaluating achievements for winner {winner.id} (ELO: {winner.elo_rating})")
+            winner_achievements = await achievement_service.evaluate_student_achievements(winner, winner_matches, db)
+            if winner_achievements:
+                print(f"[Match Debug] Winner earned {len(winner_achievements)} new achievements")
+            
+            # Evaluate achievements for losers
+            for loser in losers:
+                result = await db.execute(
+                    select(Match).join(MatchParticipant).where(
+                        MatchParticipant.student_id == loser.id
+                    )
+                )
+                loser_matches = result.scalars().all()
+                
+                print(f"[Match Debug] Evaluating achievements for loser {loser.id} (ELO: {loser.elo_rating})")
+                loser_achievements = await achievement_service.evaluate_student_achievements(loser, loser_matches, db)
+                if loser_achievements:
+                    print(f"[Match Debug] Loser earned {len(loser_achievements)} new achievements")
     
     await db.commit()
     await db.refresh(round)

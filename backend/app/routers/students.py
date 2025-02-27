@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from typing import List, Generic, TypeVar, Literal
 from pydantic import BaseModel, constr, validator, ConfigDict
@@ -11,7 +11,7 @@ from ..database import get_db
 from ..models.student import Student
 from ..models.match import Match, MatchStatus, MatchParticipant
 from ..models.flashcard import Flashcard
-from ..models.achievement import Achievement
+from ..models.achievement import Achievement, StudentAchievement
 from ..services import achievement_service
 from ..schemas.achievement import StudentAchievementResponse
 
@@ -156,10 +156,27 @@ async def delete_student(
             detail="Student not found"
         )
 
+    # Delete student from round_participants table
+    from sqlalchemy import text
+    await db.execute(
+        text("DELETE FROM round_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+    # Delete student from match_participants table
+    await db.execute(
+        text("DELETE FROM match_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+    # Delete student from arena_participants table
+    await db.execute(
+        text("DELETE FROM arena_participants WHERE student_id = :sid"),
+        {"sid": str(student_id)}
+    )
+
     await db.delete(student)
     await db.commit()
 
-@router.get("/{student_id}/achievements", response_model=List[StudentAchievementResponse])
+@router.get("/{student_id}/achievements", response_model=DataResponse[List[StudentAchievementResponse]])
 async def get_student_achievements(student_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get all achievements earned by a specific student."""
     # Verify student exists
@@ -170,22 +187,24 @@ async def get_student_achievements(student_id: UUID, db: AsyncSession = Depends(
             detail="Student not found"
         )
     
-    # Get student achievements
-    student_achievements = await achievement_service.get_student_achievements(student_id, db)
+    # Get student achievements with joined achievement data
+    result = await db.execute(
+        select(StudentAchievement, Achievement)
+        .join(Achievement, StudentAchievement.achievement_id == Achievement.id)
+        .where(StudentAchievement.student_id == student_id)
+        .order_by(desc(StudentAchievement.achieved_at))
+    )
     
-    # Load the full achievement data for each student achievement
-    result = []
-    for sa in student_achievements:
-        achievement = await db.get(Achievement, sa.achievement_id)
-        if achievement:
-            result.append({
-                "id": sa.id,
-                "student_id": sa.student_id,
-                "achievement": achievement,
-                "achieved_at": sa.achieved_at
-            })
+    achievements_data = []
+    for sa, achievement in result:
+        achievements_data.append({
+            "id": sa.id,
+            "student_id": sa.student_id,
+            "achievement": achievement,
+            "achieved_at": sa.achieved_at
+        })
     
-    return result
+    return {"data": achievements_data}
 
 @router.post("/{student_id}/evaluate-achievements")
 async def evaluate_student_achievements(
@@ -201,11 +220,11 @@ async def evaluate_student_achievements(
             detail="Student not found"
         )
 
-    # Get all matches for this student
+    # Get all matches for this student using the participants relationship
     result = await db.execute(
-        select(Match).where(
-            (Match.player1_id == student_id) | (Match.player2_id == student_id)
-        )
+        select(Match)
+        .join(MatchParticipant, Match.id == MatchParticipant.match_id)
+        .where(MatchParticipant.student_id == student_id)
     )
     matches = result.scalars().all()
 

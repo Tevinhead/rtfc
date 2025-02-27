@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from typing import List
 from uuid import UUID
 
-router = APIRouter(prefix="/achievements", tags=["achievements"])
+router = APIRouter(tags=["achievements"])
 
 @router.get("/", response_model=List[AchievementResponse])
 async def get_achievements(db: AsyncSession = Depends(get_db)):
